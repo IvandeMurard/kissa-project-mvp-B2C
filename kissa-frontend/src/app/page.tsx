@@ -75,6 +75,8 @@ export default function Home() {
 
   const [isPlaying, setIsPlaying] = useState(false);
 
+  const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
+
 
 
   useEffect(() => { fetchLibrary(); }, []);
@@ -140,6 +142,26 @@ export default function Home() {
       setLibrary((prev) => prev.filter((album) => album.id !== id));
 
       if (currentTrack?.id === id) handleStop();
+
+    } catch (error) { alert("Erreur suppression"); }
+
+  };
+
+
+
+  const handleDeleteFromModal = async () => {
+
+    if (!selectedAlbum) return;
+
+    try {
+
+      await fetch(`${API_URL}/album/${selectedAlbum.id}`, { method: "DELETE" });
+
+      setLibrary((prev) => prev.filter((album) => album.id !== selectedAlbum.id));
+
+      if (currentTrack?.id === selectedAlbum.id) handleStop();
+
+      setSelectedAlbum(null);
 
     } catch (error) { alert("Erreur suppression"); }
 
@@ -540,6 +562,48 @@ export default function Home() {
 
 
 
+      {/* MODAL DÉTAILS ALBUM */}
+      {selectedAlbum && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#111] border border-white/10 rounded-lg max-w-md w-full shadow-2xl overflow-hidden">
+            {/* Image */}
+            <div className="w-full aspect-square bg-[#000] overflow-hidden">
+              <img 
+                src={selectedAlbum.display.cover_image || "/placeholder.png"} 
+                alt={selectedAlbum.display.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            {/* Contenu */}
+            <div className="p-6">
+              <div className="mb-4">
+                <h3 className="text-white font-bold text-lg leading-tight mb-1">{selectedAlbum.display.title}</h3>
+                <p className="text-neutral-400 text-sm">{selectedAlbum.display.artist}</p>
+              </div>
+
+              {/* Boutons */}
+              <div className="flex gap-3">
+                <button 
+                  onClick={handleDeleteFromModal}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" /> Supprimer l'album
+                </button>
+                <button 
+                  onClick={() => setSelectedAlbum(null)}
+                  className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-sm text-sm font-bold uppercase tracking-widest transition-colors"
+                >
+                  Fermer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
       {/* GRILLE D'ALBUMS */}
 
       <div className="px-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-4">
@@ -554,7 +618,9 @@ export default function Home() {
 
               alt={album.display.title}
 
-              className={`w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110 ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
+              onClick={() => setSelectedAlbum(album)}
+
+              className={`w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110 cursor-pointer ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
 
             />
 
