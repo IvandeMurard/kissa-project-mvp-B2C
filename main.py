@@ -293,106 +293,65 @@ class KissaCore:
 
 
     def process(self, image_path):
-
-        """Orchestre tout le processus et formate pour le Frontend"""
-
+        """Pipeline intelligent : Vision (Web+Text) -> Discogs -> Spotify"""
+        print(f"👁️ Analyse visuelle de : {image_path}")
         
+        if not self.vision_client:
+            return {"status": "error", "message": "OCR non disponible : Google Vision credentials manquants"}
+        
+        # Charger l'image en mémoire pour Google
+        with open(image_path, "rb") as image_file:
+            content = image_file.read()
+        image = vision.Image(content=content)
 
-        # 1. VISION
+        # 1. TENTATIVE INTELLIGENTE : WEB DETECTION (Google Lens style)
+        web_response = self.vision_client.web_detection(image=image)
+        best_guess = ""
+        
+        if web_response.web_detection and web_response.web_detection.best_guess_labels:
+            best_guess = web_response.web_detection.best_guess_labels[0].label
+            print(f"🧠 Google suggère (Web Detection) : {best_guess}")
 
-        detected_text = self.step_1_ocr(image_path)
-
-        if not detected_text:
-
-            return {"status": "error", "message": "Texte illisible sur la photo."}
-
+        # 2. TENTATIVE CLASSIQUE : TEXT DETECTION
+        text_response = self.vision_client.text_detection(image=image)
+        raw_text = ""
+        if text_response.text_annotations:
+            raw_text = text_response.text_annotations[0].description.replace('\n', ' ')
+        
+        # 3. STRATÉGIE DE RECHERCHE & NETTOYAGE
+        search_terms = []
+        
+        # Priorité 1 : La devinette Google
+        if best_guess:
+            search_terms.append(best_guess)
             
+        # Priorité 2 : Le texte brut nettoyé
+        if raw_text:
+            banned_words = ["STEREO", "MONO", "LP", "VINYL", "RECORDS", "DIGITAL", "HI-FI", "SIDE", "33RPM"]
+            clean_text = raw_text
+            for word in banned_words:
+                clean_text = clean_text.replace(word, "").replace(word.lower(), "")
+            # Nettoyage espaces doubles/caractères spéciaux
+            clean_text = " ".join(clean_text.split())
+            search_terms.append(clean_text)
 
-        # 2. DATA
+        print(f"🔍 Termes candidats pour Discogs : {search_terms}")
 
-        discogs_data = self.step_2_discogs(detected_text)
-
-        if not discogs_data:
-
-            return {"status": "error", "message": "Album introuvable sur Discogs avec ce texte."}
-
-            
-
-        # 3. AUDIO & VISUAL
-
-        spotify_data = self.step_3_spotify(discogs_data['artist'], discogs_data['album_title'])
-
+        # 4. BOUCLE DE RECHERCHE
+        candidates = []
+        for query in search_terms:
+            print(f"   👉 Essai Discogs avec : '{query}'")
+            candidates = self.search_candidates(query)
+            if candidates:
+                print("   ✅ Trouvé !")
+                break 
         
+        if not candidates:
+            return {"status": "error", "message": "Aucun résultat trouvé (ni par image, ni par texte)."}
 
-        # 4. CONSTRUCTION DE L'OBJET FINAL
-
-        # Logique : On préfère l'image Spotify (souvent plus propre/carrée), sinon Discogs
-
-        final_cover = discogs_data['discogs_image']
-
-        spotify_link = None
-
-        spotify_uri = None
-
-        
-
-        if spotify_data:
-
-            spotify_link = spotify_data['spotify_link']
-
-            spotify_uri = spotify_data['spotify_uri']
-
-            if spotify_data['cover_hd']:
-
-                final_cover = spotify_data['cover_hd']
-
-
-
-        # Structure optimisée pour ton Frontend React
-
-        final_record = {
-
-            "status": "success",
-
-            "display": {
-
-                "artist": discogs_data['artist'],
-
-                "title": discogs_data['album_title'],
-
-                "cover_image": final_cover, # L'image officielle propre
-
-                "original_photo": image_path # On garde la trace locale si besoin
-
-            },
-
-            "details": {
-
-                "year": discogs_data['year'],
-
-                "label": discogs_data['label'],
-
-                "genre": discogs_data['genre'],
-
-                "tracklist": discogs_data['tracklist']
-
-            },
-
-            "links": {
-
-                "spotify_url": spotify_link,
-
-                "spotify_uri": spotify_uri,
-
-                "discogs_url": discogs_data['discogs_url']
-
-            }
-
-        }
-
-        
-
-        return final_record
+        # Récupération du meilleur résultat
+        best_match = candidates[0]
+        return self.process_by_id(best_match['discogs_id'])
 
 
 
