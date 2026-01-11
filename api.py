@@ -4,6 +4,21 @@ from pydantic import BaseModel
 import shutil
 import os
 from main import KissaCore
+from supabase import create_client, Client
+from dotenv import load_dotenv
+
+# Chargement des variables d'environnement
+load_dotenv()
+
+# --- CONFIGURATION SUPABASE ---
+url: str = os.environ.get("SUPABASE_URL")
+key: str = os.environ.get("SUPABASE_KEY")
+
+if not url or not key:
+    print("⚠️  ATTENTION : SUPABASE_URL ou SUPABASE_KEY manquant dans le .env")
+
+# Initialisation du client Supabase
+supabase: Client = create_client(url, key)
 
 # Création de l'application
 app = FastAPI()
@@ -38,7 +53,7 @@ def read_root():
 @app.get("/library")
 def get_library():
     try:
-        response = kissa.get_library()
+        response = supabase.table("albums").select("*").order("created_at", desc=True).execute()
         return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -50,24 +65,43 @@ def delete_album(album_id: str):
         # Si tu utilises supabase direct dans api.py, assure-toi d'avoir importé supabase
         # Sinon, pour faire simple, on suppose que kissa a une méthode delete ou on l'ajoute
         # Voici la version simple directe si tu as supabase ici, sinon via kissa:
-        response = kissa.supabase.table("albums").delete().eq("id", album_id).execute()
+        response = supabase.table("albums").delete().eq("id", album_id).execute()
         return {"message": "Album supprimé"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/scan")
 async def scan_vinyl(file: UploadFile = File(...)):
+    """
+    1. Reçoit l'image
+    2. Analyse avec Kissa (Google/Discogs/Spotify)
+    3. Sauvegarde le résultat dans Supabase
+    4. Renvoie le résultat au frontend
+    """
     file_location = f"temp_{file.filename}"
+    
     try:
-        with open(file_location, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
+        # A. Vérification fichier vide AVANT de lancer les processus lourds
+        print(f"📥 Réception : {file.filename}")
+        contents = await file.read()
+        if len(contents) == 0:
+            raise HTTPException(status_code=400, detail="Fichier vide.")
+            
+        with open(file_location, "wb") as f:
+            f.write(contents)
+
+        # B. Analyse Kissa
         result = kissa.process(file_location)
         
+        # C. Nettoyage image après analyse
+        if os.path.exists(file_location):
+            os.remove(file_location)
+            
+        # D. Vérification erreur
         if result.get("status") == "error":
-             raise HTTPException(status_code=400, detail=result["message"])
-             
-        # Sauvegarde
+            raise HTTPException(status_code=400, detail=result["message"])
+
+        # E. Sauvegarde dans Supabase
         new_album = {
             "artist": result['display']['artist'],
             "title": result['display']['title'],
@@ -79,16 +113,23 @@ async def scan_vinyl(file: UploadFile = File(...)):
             "discogs_url": result['links']['discogs_url'],
             "tracklist": result['details']['tracklist']
         }
-        kissa.supabase.table("albums").insert(new_album).execute()
+
+        print("💾 Sauvegarde en base de données...")
+        supabase.table("albums").insert(new_album).execute()
         
         return result
-        
-    except Exception as e:
-        print(f"Erreur API: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
+
+    except HTTPException as he:
+        # Erreurs "prévues" (400/404) : on les laisse passer telles quelles
         if os.path.exists(file_location):
             os.remove(file_location)
+        raise he
+    except Exception as e:
+        # Crashs imprévus : deviennent 500
+        print(f"Erreur API: {e}")
+        if os.path.exists(file_location):
+            os.remove(file_location)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/search-candidates")
 async def get_candidates(request: CandidateRequest):
@@ -96,11 +137,13 @@ async def get_candidates(request: CandidateRequest):
 
 @app.post("/add-by-id")
 async def add_vinyl_by_id(request: AddByIdRequest):
+    """Ajoute le vinyle spécifique choisi par l'utilisateur"""
     try:
         result = kissa.process_by_id(request.discogs_id)
         if result.get("status") == "error":
             raise HTTPException(status_code=404, detail=result["message"])
 
+        # Sauvegarde dans Supabase
         new_album = {
             "artist": result['display']['artist'],
             "title": result['display']['title'],
@@ -113,7 +156,11 @@ async def add_vinyl_by_id(request: AddByIdRequest):
             "tracklist": result['details']['tracklist']
         }
         
-        kissa.supabase.table("albums").insert(new_album).execute()
+        supabase.table("albums").insert(new_album).execute()
         return result
+    except HTTPException as he:
+        # Erreurs "prévues" (404) : on les laisse passer telles quelles
+        raise he
     except Exception as e:
+        # Crashs imprévus : deviennent 500
         raise HTTPException(status_code=500, detail=str(e))
