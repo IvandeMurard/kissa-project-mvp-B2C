@@ -38,13 +38,13 @@ supabase: Client = create_client(url, key)
 # --- CONFIGURATION FASTAPI ---
 app = FastAPI(title="Kissa API", description="Backend avec mémoire Supabase")
 
-# --- BLOC CORS CRITIQUE (EN PREMIER) ---
-# Ceci autorise le Frontend Vercel à parler au Backend Render
+# --- BLOC CORS CRITIQUE (IMMEDIATEMENT APRES app = FastAPI()) ---
+# Doit être placé IMMEDIATEMENT après app = FastAPI() pour garantir le fonctionnement
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # "*" veut dire : Accepte toutes les origines (Vercel, Mobile, Localhost)
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Autorise GET, POST, DELETE, etc.
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
