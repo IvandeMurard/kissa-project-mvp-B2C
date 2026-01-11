@@ -40,6 +40,9 @@ interface SearchCandidate {
 
 export default function Home() {
 
+  // Configuration de l'URL de l'API (utilise NEXT_PUBLIC_API_URL en production, localhost en dev)
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
   const [library, setLibrary] = useState<Album[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -82,7 +85,7 @@ export default function Home() {
 
     try {
 
-      const res = await fetch("http://127.0.0.1:8000/library");
+      const res = await fetch(`${API_URL}/library`);
 
       const dbData = await res.json();
 
@@ -132,7 +135,7 @@ export default function Home() {
 
     try {
 
-      await fetch(`http://127.0.0.1:8000/album/${id}`, { method: "DELETE" });
+      await fetch(`${API_URL}/album/${id}`, { method: "DELETE" });
 
       setLibrary((prev) => prev.filter((album) => album.id !== id));
 
@@ -156,7 +159,7 @@ export default function Home() {
 
     try {
 
-      const response = await fetch("http://127.0.0.1:8000/scan", { method: "POST", body: formData });
+      const response = await fetch(`${API_URL}/scan`, { method: "POST", body: formData });
 
       if (response.ok) { await fetchLibrary(); e.target.value = ""; } 
 
@@ -205,9 +208,9 @@ export default function Home() {
     try {
 
       console.log("🔍 Envoi de la requête de recherche :", manualSearchQuery);
-      console.log("🔍 URL : http://127.0.0.1:8000/search-candidates");
+      console.log("🔍 URL :", `${API_URL}/search-candidates`);
 
-      const response = await fetch("http://127.0.0.1:8000/search-candidates", {
+      const response = await fetch(`${API_URL}/search-candidates`, {
 
         method: "POST",
 
@@ -253,7 +256,7 @@ export default function Home() {
 
     try {
 
-      const response = await fetch("http://127.0.0.1:8000/add-by-id", {
+      const response = await fetch(`${API_URL}/add-by-id`, {
 
         method: "POST",
 
