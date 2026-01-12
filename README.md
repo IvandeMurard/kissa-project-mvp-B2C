@@ -1,6 +1,7 @@
 # 喫茶 KISSA - AI Vinyl Companion 💿
 
-**Kissa** est une application Fullstack permettant de numériser et gérer une collection de vinyles instantanément. En prenant simplement une photo d'une pochette, l'application identifie l'album grâce à une chaîne d'IA hybride, récupère les métadonnées (Discogs), les liens de streaming (Spotify) et sauvegarde le tout dans une bibliothèque personnelle.
+**Kissa** est une application Fullstack permettant de numériser et gérer une collection de vinyles instantanément.
+En prenant simplement une photo d'une pochette, l'application identifie l'album grâce à une chaîne d'IA hybride, récupère les métadonnées (Discogs), les liens de streaming (Spotify) et sauvegarde le tout dans une bibliothèque personnelle.
 
 ![Status](https://img.shields.io/badge/Status-MVP%20Live-success)
 ![Stack](https://img.shields.io/badge/Stack-Next.js%20%7C%20FastAPI%20%7C%20Supabase-blue)
