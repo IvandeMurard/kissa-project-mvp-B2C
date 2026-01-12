@@ -17,6 +17,8 @@ import spotipy
 
 from spotipy.oauth2 import SpotifyClientCredentials
 
+from openai import OpenAI
+
 
 
 # Chargement des variables d'environnement
@@ -103,6 +105,22 @@ class KissaCore:
 
             self.sp = None
 
+        
+
+        # 4. Setup OpenAI (LLM Reasoning)
+
+        openai_key = os.environ.get("OPENAI_API_KEY")
+
+        if openai_key:
+
+            self.openai_client = OpenAI(api_key=openai_key)
+
+        else:
+
+            print("ATTENTION : OPENAI_API_KEY manquant. LLM-reasoning désactivé.")
+
+            self.openai_client = None
+
 
 
     def _clean_text(self, text):
@@ -110,6 +128,124 @@ class KissaCore:
         """Nettoie le texte brut de l'OCR pour la recherche"""
 
         return text.replace("\n", " ").strip()
+
+
+    def _llm_extract_metadata(self, best_guess, raw_text):
+
+        """Utilise GPT-4o-mini pour extraire l'artiste et l'album depuis les résultats OCR"""
+
+        if not self.openai_client:
+
+            return None
+
+        
+
+        # Construire le prompt utilisateur avec les données disponibles
+
+        user_content = "Texte brut OCR :\n"
+
+        if raw_text:
+
+            user_content += f"{raw_text}\n\n"
+
+        if best_guess:
+
+            user_content += f"Suggestion Google Vision : {best_guess}\n"
+
+        
+
+        if not raw_text and not best_guess:
+
+            return None
+
+        
+
+        system_prompt = """Tu es un expert en discographie vinyle. Je vais te donner des textes bruts extraits d'une pochette d'album par OCR. Ta mission est d'identifier l'Artiste et le Titre de l'album.
+Ignorer les termes techniques comme 'Stereo', 'LP', '33rpm', 'Digitally Remastered', les labels, ou les numéros de série.
+Si les données sont trop floues ou incohérentes, renvoie null.
+Format de réponse attendu : JSON strict { "artist": string, "album": string }."""
+
+        try:
+
+            response = self.openai_client.chat.completions.create(
+
+                model="gpt-4o-mini",
+
+                messages=[
+
+                    {"role": "system", "content": system_prompt},
+
+                    {"role": "user", "content": user_content}
+
+                ],
+
+                temperature=0.3
+
+            )
+
+            
+
+            content = response.choices[0].message.content.strip()
+
+            
+
+            # Parser la réponse JSON
+
+            # Si le LLM a ajouté des markdown code blocks, on les retire
+
+            if content.startswith("```json"):
+
+                content = content[7:]
+
+            if content.startswith("```"):
+
+                content = content[3:]
+
+            if content.endswith("```"):
+
+                content = content[:-3]
+
+            content = content.strip()
+
+            
+
+            # Si le LLM a renvoyé null, on retourne None
+
+            if content.lower() == "null":
+
+                return None
+
+            
+
+            result = json.loads(content)
+
+            
+
+            # Vérifier que les champs requis sont présents et non vides
+
+            if result.get("artist") and result.get("album"):
+
+                print(f"🤖 LLM extrait : {result['artist']} - {result['album']}")
+
+                return result
+
+            else:
+
+                return None
+
+                
+
+        except json.JSONDecodeError as e:
+
+            print(f"ATTENTION : Erreur parsing JSON LLM : {e}")
+
+            return None
+
+        except Exception as e:
+
+            print(f"ATTENTION : Erreur appel LLM (non bloquant) : {e}")
+
+            return None
 
 
 
@@ -318,7 +454,20 @@ class KissaCore:
         if text_response.text_annotations:
             raw_text = text_response.text_annotations[0].description.replace('\n', ' ')
         
-        # 3. STRATÉGIE DE RECHERCHE & NETTOYAGE
+        # 3. TENTATIVE LLM REASONING (Nouveau)
+        llm_result = self._llm_extract_metadata(best_guess, raw_text)
+        
+        if llm_result:
+            # Recherche précise avec les données LLM
+            query = f"{llm_result['artist']} {llm_result['album']}"
+            print(f"🔍 Recherche Discogs avec données LLM : '{query}'")
+            candidates = self.search_candidates(query)
+            if candidates:
+                print("   ✅ Trouvé avec LLM !")
+                best_match = candidates[0]
+                return self.process_by_id(best_match['discogs_id'])
+        
+        # 4. FALLBACK : STRATÉGIE DE RECHERCHE & NETTOYAGE MANUEL
         search_terms = []
         
         # Priorité 1 : La devinette Google
@@ -335,9 +484,9 @@ class KissaCore:
             clean_text = " ".join(clean_text.split())
             search_terms.append(clean_text)
 
-        print(f"🔍 Termes candidats pour Discogs : {search_terms}")
+        print(f"🔍 Termes candidats pour Discogs (fallback manuel) : {search_terms}")
 
-        # 4. BOUCLE DE RECHERCHE
+        # 5. BOUCLE DE RECHERCHE
         candidates = []
         for query in search_terms:
             print(f"   👉 Essai Discogs avec : '{query}'")
