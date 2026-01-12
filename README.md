@@ -1,15 +1,57 @@
-# Kissa Backend
+# 喫茶 KISSA - AI Vinyl Companion 💿
 
-A new backend project.
+**Kissa** est une application Fullstack permettant de numériser et gérer une collection de vinyles instantanément. En prenant simplement une photo d'une pochette, l'application identifie l'album grâce à une chaîne d'IA hybride, récupère les métadonnées (Discogs), les liens de streaming (Spotify) et sauvegarde le tout dans une bibliothèque personnelle.
 
-## Getting Started
+![Status](https://img.shields.io/badge/Status-MVP%20Live-success)
+![Stack](https://img.shields.io/badge/Stack-Next.js%20%7C%20FastAPI%20%7C%20Supabase-blue)
 
-This project was just initialized. Add your setup and usage instructions here.
+## ✨ Fonctionnalités
 
-## Development
+* **Scan Visuel Intelligent** : Identification d'albums via caméra mobile (compatible reflets et pochettes complexes).
+* **Pipeline IA Avancé** : Utilisation de Google Vision (Web Entities + OCR) combiné à un **LLM Reasoning (GPT-4o)** pour nettoyer et contextualiser les données brutes avant la recherche.
+* **Recherche Manuelle** : Fallback manuel pour les disques introuvables visuellement.
+* **Bibliothèque Cloud** : Sauvegarde persistante des albums, artistes, années et tracklists.
+* **Streaming** : Lien direct vers l'album sur Spotify.
+* **Gestion** : Suppression et consultation détaillée des albums.
 
-TBD
+## 🏗️ Architecture & Pipeline de Vision
 
-## License
+L'application repose sur une architecture découplée (Frontend Vercel / Backend Render) :
 
-TBD
+1.  **Input** : L'utilisateur envoie une photo via le Frontend Next.js.
+2.  **Vision (Google Cloud)** : Analyse de l'image (Web Detection pour les pochettes connues + OCR pour le texte).
+3.  **Reasoning (OpenAI GPT-4o)** : Un agent LLM analyse les données brutes pour séparer le "bruit" (ex: "Stereo", "LP") de l'information utile (Artiste, Titre).
+4.  **Metadata (Discogs)** : Recherche précise basée sur les données nettoyées.
+5.  **Enrichissement (Spotify)** : Récupération du lien d'écoute.
+6.  **Stockage (Supabase)** : Sauvegarde en base de données PostgreSQL.
+
+## 🛠️ Stack Technique
+
+### Frontend
+* **Framework** : Next.js 14 (App Router)
+* **Langage** : TypeScript
+* **Styling** : Tailwind CSS
+* **Hébergement** : Vercel
+
+### Backend (API)
+* **Framework** : FastAPI (Python 3.10+)
+* **IA & Data** : Google Cloud Vision, OpenAI API, Discogs Client, Spotipy
+* **Serveur** : Uvicorn
+* **Hébergement** : Render
+
+### Base de données
+* **SGBD** : Supabase (PostgreSQL)
+
+---
+
+## 🚀 Installation en local
+
+### Prérequis
+* Node.js & npm
+* Python 3.10+
+* Comptes API : Google Cloud, OpenAI, Discogs, Spotify, Supabase.
+
+### 1. Cloner le projet
+```bash
+git clone [https://github.com/votre-username/kissa-project-mvp.git](https://github.com/votre-username/kissa-project-mvp.git)
+cd kissa-project-mvp
