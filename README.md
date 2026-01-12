@@ -1,59 +1,71 @@
 # 喫茶 KISSA - AI Vinyl Companion 💿
 
-**Kissa** est une application Fullstack permettant de numériser et gérer une collection de vinyles instantanément.
-En prenant simplement une photo d'une pochette, l'application identifie l'album grâce à une chaîne d'IA hybride, récupère les métadonnées (Discogs), les liens de streaming (Spotify) et sauvegarde le tout dans une bibliothèque personnelle.
+**Kissa** is a full-stack application designed to digitize and manage a vinyl collection instantly. By simply snapping a photo of a record cover, the app identifies the album using a hybrid AI pipeline, retrieves metadata (Discogs), streaming links (Spotify), and saves everything to a personal cloud library.
+
+**New:** Now featuring **Zero UI** capabilities compatible with iOS Siri & Action Button for "blind" inventory checks.
 
 ![Status](https://img.shields.io/badge/Status-MVP%20Live-success)
 ![Stack](https://img.shields.io/badge/Stack-Next.js%20%7C%20FastAPI%20%7C%20Supabase-blue)
 
-## ✨ Fonctionnalités
+## ✨ Features
 
-* **Scan Visuel Intelligent** : Identification d'albums via caméra mobile (compatible reflets et pochettes complexes).
-* **Pipeline IA Avancé** : Utilisation de Google Vision (Web Entities + OCR) combiné à un **LLM Reasoning (GPT-4o)** pour nettoyer et contextualiser les données brutes avant la recherche.
-* **Recherche Manuelle** : Fallback manuel pour les disques introuvables visuellement.
-* **Bibliothèque Cloud** : Sauvegarde persistante des albums, artistes, années et tracklists.
-* **Streaming** : Lien direct vers l'album sur Spotify.
-* **Gestion** : Suppression et consultation détaillée des albums.
+* **Smart Visual Scan**: Identify albums via mobile camera (handles glare and complex covers).
+* **Advanced AI Pipeline**: Combines **Google Vision** (Web Entities + OCR) with **LLM Reasoning (GPT-4o)** to clean and contextualize raw data before searching.
+* **Zero UI / Headless Mode**:
+    * **Siri Support**: "Hey Siri, do I own 'Daft Punk - Discovery'?"
+    * **Haptic Check**: Use the iPhone Action Button to scan a record and receive a vibration feedback (1 buzz = Owned, 2 buzzes = New).
+* **Manual Search**: Fallback for obscure records.
+* **Cloud Library**: Persistent storage of albums, artists, years, and tracklists via Supabase.
+* **Streaming Integration**: Direct Spotify playback links.
 
-## 🏗️ Architecture & Pipeline de Vision
+## 🏗️ Architecture & Vision Pipeline
 
-L'application repose sur une architecture découplée (Frontend Vercel / Backend Render) :
+The app relies on a decoupled architecture (Vercel Frontend / Render Backend):
 
-1.  **Input** : L'utilisateur envoie une photo via le Frontend Next.js.
-2.  **Vision (Google Cloud)** : Analyse de l'image (Web Detection pour les pochettes connues + OCR pour le texte).
-3.  **Reasoning (OpenAI GPT-4o)** : Un agent LLM analyse les données brutes pour séparer le "bruit" (ex: "Stereo", "LP") de l'information utile (Artiste, Titre).
-4.  **Metadata (Discogs)** : Recherche précise basée sur les données nettoyées.
-5.  **Enrichissement (Spotify)** : Récupération du lien d'écoute.
-6.  **Stockage (Supabase)** : Sauvegarde en base de données PostgreSQL.
+1.  **Input**: User sends a photo (Web App or iOS Shortcut).
+2.  **Vision (Google Cloud)**: Image analysis (Web Detection + Text Detection).
+3.  **Reasoning (OpenAI GPT-4o)**: An AI Agent analyzes raw OCR data to separate "noise" (e.g., "Stereo", "LP") from useful info (Artist, Title).
+4.  **Metadata (Discogs)**: Precise search based on cleaned data.
+5.  **Enrichment (Spotify)**: Retrieval of streaming links.
+6.  **Storage (Supabase)**: PostgreSQL database operations.
 
-## 🛠️ Stack Technique
+## 🛠️ Tech Stack
 
 ### Frontend
-* **Framework** : Next.js 14 (App Router)
-* **Langage** : TypeScript
-* **Styling** : Tailwind CSS
-* **Hébergement** : Vercel
+* **Framework**: Next.js 14 (App Router)
+* **Language**: TypeScript
+* **Styling**: Tailwind CSS
+* **Hosting**: Vercel
 
 ### Backend (API)
-* **Framework** : FastAPI (Python 3.10+)
-* **IA & Data** : Google Cloud Vision, OpenAI API, Discogs Client, Spotipy
-* **Serveur** : Uvicorn
-* **Hébergement** : Render
+* **Framework**: FastAPI (Python 3.10+)
+* **AI & Data**: Google Cloud Vision, OpenAI API, Discogs Client, Spotipy
+* **Server**: Uvicorn
+* **Hosting**: Render
 
-### Base de données
-* **SGBD** : Supabase (PostgreSQL)
+### Database
+* **DBMS**: Supabase (PostgreSQL)
 
 ---
 
-### 🔮 Roadmap (Futur)
-[ ] Agent Vision Autonome (Niveau 3) : Envoyer l'image directement au LLM pour une analyse stylistique (polices illisibles, logos).
+## MIT License
 
-[ ] Mode Social : Partager sa collection ou ses écoutes.
+Copyright (c) 2024 Kissa Project
 
-[ ] Export Discogs : Synchroniser la collection Kissa vers un compte Discogs.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-📄 Licence
-Projet Open Source - MIT License.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-### Auteur
-Ivan de Murard
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
