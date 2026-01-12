@@ -45,14 +45,15 @@ L'application repose sur une architecture découplée (Frontend Vercel / Backend
 
 ---
 
-## 🚀 Installation en local
+### 🔮 Roadmap (Futur)
+[ ] Agent Vision Autonome (Niveau 3) : Envoyer l'image directement au LLM pour une analyse stylistique (polices illisibles, logos).
 
-### Prérequis
-* Node.js & npm
-* Python 3.10+
-* Comptes API : Google Cloud, OpenAI, Discogs, Spotify, Supabase.
+[ ] Mode Social : Partager sa collection ou ses écoutes.
 
-### 1. Cloner le projet
-```bash
-git clone [https://github.com/votre-username/kissa-project-mvp.git](https://github.com/votre-username/kissa-project-mvp.git)
-cd kissa-project-mvp
+[ ] Export Discogs : Synchroniser la collection Kissa vers un compte Discogs.
+
+📄 Licence
+Projet Open Source - MIT License.
+
+### Auteur
+Ivan de Murard
