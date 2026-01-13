@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import shutil
 import os
+import uuid
 from main import KissaCore
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -54,7 +55,9 @@ def read_root():
 def get_library():
     try:
         response = supabase.table("albums").select("*").order("created_at", desc=True).execute()
-        return response.data
+        data = response.data
+        print(f"Library fetch: {len(data)} items found")
+        return data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -78,7 +81,7 @@ async def scan_vinyl(file: UploadFile = File(...)):
     3. Sauvegarde le résultat dans Supabase
     4. Renvoie le résultat au frontend
     """
-    file_location = f"temp_{file.filename}"
+    file_location = f"temp_{uuid.uuid4()}.jpg"
     
     try:
         # A. Vérification fichier vide AVANT de lancer les processus lourds

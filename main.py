@@ -770,9 +770,36 @@ Format de réponse attendu : JSON strict { "artist": string, "album": string }."
 
         try:
 
-            # 1. On récupère l'objet précis via l'ID
-
-            album = self.discogs.release(discogs_id)
+            # 1. Tentative Release ID d'abord
+            print(f"   👉 Tentative Release ID : {discogs_id}")
+            try:
+                album = self.discogs.release(discogs_id)
+                print(f"   ✅ Trouvé comme Release")
+            except Exception as release_error:
+                # Si l'appel Release échoue, essayer Master ID
+                print(f"   ⚠️ Release ID échoué ({release_error}), tentative Master ID...")
+                try:
+                    master = self.discogs.master(discogs_id)
+                    print(f"   ✅ Trouvé comme Master, récupération de la main_release...")
+                    # Récupérer la main_release du Master
+                    if hasattr(master, 'main_release') and master.main_release:
+                        main_release_id = master.main_release.id
+                        print(f"   📦 Main Release ID : {main_release_id}")
+                        album = self.discogs.release(main_release_id)
+                    else:
+                        # Si pas de main_release, essayer le premier release disponible
+                        if hasattr(master, 'versions') and master.versions:
+                            first_version = master.versions[0]
+                            if hasattr(first_version, 'id'):
+                                print(f"   📦 Utilisation de la première version : {first_version.id}")
+                                album = self.discogs.release(first_version.id)
+                            else:
+                                raise Exception("Master trouvé mais aucune release disponible")
+                        else:
+                            raise Exception("Master trouvé mais pas de main_release ni de versions")
+                except Exception as master_error:
+                    print(f"   ❌ Master ID aussi échoué : {master_error}")
+                    raise Exception(f"ID {discogs_id} n'est ni un Release ni un Master valide : {release_error}")
 
             
 
