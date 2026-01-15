@@ -173,13 +173,20 @@ export default function Home() {
 
     try {
 
-      await fetch(`${API_URL}/album/${id}`, { method: "DELETE" });
+      const response = await fetch(`${API_URL}/album/${id}`, { method: "DELETE" });
+
+      if (!response.ok) {
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+      }
 
       setAllAlbums((prev) => prev.filter((album) => album.id !== id));
 
       if (currentTrack?.id === id) handleStop();
 
-    } catch (error) { alert("Erreur suppression"); }
+    } catch (error) { 
+      alert("Erreur suppression"); 
+      console.error("Erreur lors de la suppression:", error);
+    }
 
   };
 
@@ -191,7 +198,11 @@ export default function Home() {
 
     try {
 
-      await fetch(`${API_URL}/album/${selectedAlbum.id}`, { method: "DELETE" });
+      const response = await fetch(`${API_URL}/album/${selectedAlbum.id}`, { method: "DELETE" });
+
+      if (!response.ok) {
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+      }
 
       setAllAlbums((prev) => prev.filter((album) => album.id !== selectedAlbum.id));
 
@@ -199,7 +210,10 @@ export default function Home() {
 
       setSelectedAlbum(null);
 
-    } catch (error) { alert("Erreur suppression"); }
+    } catch (error) { 
+      alert("Erreur suppression"); 
+      console.error("Erreur lors de la suppression:", error);
+    }
 
   };
 
