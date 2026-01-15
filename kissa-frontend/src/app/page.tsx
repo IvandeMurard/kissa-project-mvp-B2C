@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc } from "lucide-react";
+
+import { createClient } from "@supabase/supabase-js";
 
 // --- TYPES ---
 
@@ -43,8 +45,22 @@ export default function Home() {
   // Configuration de l'URL de l'API (utilise NEXT_PUBLIC_API_URL en production, localhost en dev)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-  const [library, setLibrary] = useState<Album[]>([]);
+  // Initialisation du client Supabase
+  const supabase = useMemo(() => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("⚠️ NEXT_PUBLIC_SUPABASE_URL ou NEXT_PUBLIC_SUPABASE_KEY manquant");
+      return null;
+    }
+    
+    return createClient(supabaseUrl, supabaseKey);
+  }, []);
 
+  const [allAlbums, setAllAlbums] = useState<Album[]>([]);
+  const [filteredAlbums, setFilteredAlbums] = useState<Album[]>([]);
+  const [isLoadingLibrary, setIsLoadingLibrary] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
   
@@ -65,7 +81,8 @@ export default function Home() {
 
   // États UI Globaux
 
-  const [filterQuery, setFilterQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOption, setSortOption] = useState<"recent" | "artist" | "year">("recent");
 
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
 
@@ -85,13 +102,28 @@ export default function Home() {
 
   const fetchLibrary = async () => {
 
+    if (!supabase) {
+      console.error("Supabase client non initialisé");
+      setIsLoadingLibrary(false);
+      return;
+    }
+
+    setIsLoadingLibrary(true);
+
     try {
 
-      const res = await fetch(`${API_URL}/library`);
+      const { data, error } = await supabase
+        .from("albums")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-      const dbData = await res.json();
+      if (error) {
+        console.error("Erreur Supabase:", error);
+        setIsLoadingLibrary(false);
+        return;
+      }
 
-      const formattedLibrary: Album[] = dbData.map((item: any) => ({
+      const formattedLibrary: Album[] = (data || []).map((item: any) => ({
 
         id: item.id,
 
@@ -111,13 +143,17 @@ export default function Home() {
 
       }));
 
-      setLibrary(formattedLibrary);
+      setAllAlbums(formattedLibrary);
 
       const allGenres = formattedLibrary.flatMap(a => a.details.genre || []);
 
       setAvailableGenres(Array.from(new Set(allGenres)).sort());
 
-    } catch (error) { console.error(error); }
+    } catch (error) { 
+      console.error("Erreur lors du chargement:", error); 
+    } finally {
+      setIsLoadingLibrary(false);
+    }
 
   };
 
@@ -139,7 +175,7 @@ export default function Home() {
 
       await fetch(`${API_URL}/album/${id}`, { method: "DELETE" });
 
-      setLibrary((prev) => prev.filter((album) => album.id !== id));
+      setAllAlbums((prev) => prev.filter((album) => album.id !== id));
 
       if (currentTrack?.id === id) handleStop();
 
@@ -157,7 +193,7 @@ export default function Home() {
 
       await fetch(`${API_URL}/album/${selectedAlbum.id}`, { method: "DELETE" });
 
-      setLibrary((prev) => prev.filter((album) => album.id !== selectedAlbum.id));
+      setAllAlbums((prev) => prev.filter((album) => album.id !== selectedAlbum.id));
 
       if (currentTrack?.id === selectedAlbum.id) handleStop();
 
@@ -322,19 +358,43 @@ export default function Home() {
 
 
 
-  const filteredLibrary = library.filter((album) => {
+  // Logique de filtrage et tri
+  useEffect(() => {
+    let filtered = [...allAlbums];
 
-    const matchesSearch = 
+    // Filtrage par recherche
+    if (searchQuery.trim()) {
+      const queryLower = searchQuery.toLowerCase();
+      filtered = filtered.filter((album) =>
+        album.display.title.toLowerCase().includes(queryLower) ||
+        album.display.artist.toLowerCase().includes(queryLower)
+      );
+    }
 
-      album.display.title.toLowerCase().includes(filterQuery.toLowerCase()) ||
+    // Filtrage par genre
+    if (selectedGenre) {
+      filtered = filtered.filter((album) => album.details.genre.includes(selectedGenre));
+    }
 
-      album.display.artist.toLowerCase().includes(filterQuery.toLowerCase());
+    // Tri
+    filtered.sort((a, b) => {
+      switch (sortOption) {
+        case "artist":
+          return a.display.artist.localeCompare(b.display.artist);
+        case "year":
+          const yearA = parseInt(a.details.year) || 0;
+          const yearB = parseInt(b.details.year) || 0;
+          if (yearB !== yearA) return yearB - yearA;
+          return a.display.artist.localeCompare(b.display.artist);
+        case "recent":
+        default:
+          // Tri par created_at (déjà trié depuis Supabase, mais on garde pour cohérence)
+          return 0;
+      }
+    });
 
-    const matchesGenre = selectedGenre ? album.details.genre.includes(selectedGenre) : true;
-
-    return matchesSearch && matchesGenre;
-
-  });
+    setFilteredAlbums(filtered);
+  }, [allAlbums, searchQuery, selectedGenre, sortOption]);
 
 
 
@@ -350,7 +410,7 @@ export default function Home() {
 
           <h1 className="text-xl tracking-[0.3em] font-light text-white uppercase">喫茶 Kissa</h1>
 
-          <span className="text-[10px] text-neutral-600 border border-neutral-800 px-2 py-0.5 rounded-full">{filteredLibrary.length} LP</span>
+          <span className="text-[10px] text-neutral-600 border border-neutral-800 px-2 py-0.5 rounded-full">{filteredAlbums.length} LP</span>
 
         </div>
 
@@ -360,7 +420,7 @@ export default function Home() {
 
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-500 group-focus-within:text-white" />
 
-            <input type="text" placeholder="Filtrer..." value={filterQuery} onChange={(e) => setFilterQuery(e.target.value)}
+            <input type="text" placeholder="Filtrer..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
 
               className="w-full bg-[#111] border border-[#222] rounded-full py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-white/20 transition-all placeholder:text-neutral-700"/>
 
@@ -604,11 +664,50 @@ export default function Home() {
 
 
 
+      {/* BARRE D'OUTILS */}
+      <div className="px-6 py-4 border-b border-white/5">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+          {/* Recherche */}
+          <div className="relative group w-full md:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 group-focus-within:text-white" />
+            <input
+              type="text"
+              placeholder="Rechercher un album/artiste..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#111] border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-white/20 transition-all placeholder:text-neutral-700 text-white"
+            />
+          </div>
+
+          {/* Tri */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-neutral-500 uppercase tracking-wider">Trier par:</label>
+            <select
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value as "recent" | "artist" | "year")}
+              className="bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20 transition-all cursor-pointer"
+            >
+              <option value="recent">Ajouté récemment</option>
+              <option value="artist">Artiste (A-Z)</option>
+              <option value="year">Année</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+
+
       {/* GRILLE D'ALBUMS */}
-
       <div className="px-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-4">
-
-        {filteredLibrary.map((album) => (
+        {isLoadingLibrary ? (
+          // Skeletons pendant le chargement
+          Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="aspect-square bg-[#111] border border-white/5 animate-pulse">
+              <div className="w-full h-full bg-neutral-800/50"></div>
+            </div>
+          ))
+        ) : (
+          filteredAlbums.map((album) => (
 
           <div key={album.id} className="group relative aspect-square bg-[#111] overflow-hidden cursor-default border border-white/5">
 
@@ -672,7 +771,8 @@ export default function Home() {
 
           </div>
 
-        ))}
+          ))
+        )}
 
       </div>
 
