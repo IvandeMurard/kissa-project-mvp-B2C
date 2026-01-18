@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 
 import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink } from "lucide-react";
 
@@ -96,24 +96,18 @@ export default function Home() {
 
 
 
-  useEffect(() => { 
-    if (supabase) {
-      fetchLibrary(); 
-    } else {
-      setIsLoadingLibrary(false);
-    }
-  }, [supabase]);
+  // Déclaration de fetchLibrary avec useCallback AVANT le useEffect
+  const fetchLibrary = useCallback(async () => {
 
-
-
-  const fetchLibrary = async () => {
+    console.log("📚 fetchLibrary appelée, supabase:", supabase ? "disponible" : "null");
 
     if (!supabase) {
-      console.error("Supabase client non initialisé");
-      setIsLoadingLibrary(false);
+      console.error("⚠️ Supabase client non initialisé dans fetchLibrary");
+      // Ne pas mettre isLoadingLibrary à false ici - attendre que supabase soit disponible
       return;
     }
 
+    console.log("🔄 Début du chargement de la bibliothèque...");
     setIsLoadingLibrary(true);
 
     try {
@@ -122,6 +116,12 @@ export default function Home() {
         .from("albums")
         .select("*")
         .order("created_at", { ascending: false });
+
+      console.log("📦 Données Supabase reçues:", { 
+        dataCount: data?.length || 0, 
+        hasError: !!error,
+        error: error?.message 
+      });
 
       if (error) {
         console.error("❌ Erreur Supabase lors du chargement:", error);
@@ -150,7 +150,7 @@ export default function Home() {
 
       }));
 
-      console.log(`✅ ${formattedLibrary.length} album(s) chargé(s)`);
+      console.log(`✅ ${formattedLibrary.length} album(s) chargé(s) et formatés`);
       setAllAlbums(formattedLibrary);
 
       const allGenres = formattedLibrary.flatMap(a => a.details.genre || []);
@@ -163,9 +163,24 @@ export default function Home() {
       alert(`❌ Erreur lors du chargement de la bibliothèque : ${errorMessage}`);
     } finally {
       setIsLoadingLibrary(false);
+      console.log("✅ Chargement terminé, isLoadingLibrary = false");
     }
 
-  };
+  }, [supabase]);
+
+
+
+  useEffect(() => { 
+    console.log("🔄 useEffect de chargement déclenché, supabase:", supabase ? "disponible" : "null");
+    
+    if (supabase) {
+      console.log("📚 Appel de fetchLibrary...");
+      fetchLibrary(); 
+    } else {
+      console.log("⏳ Supabase non disponible, attente...");
+      // Ne pas mettre isLoadingLibrary à false ici - attendre que supabase soit disponible
+    }
+  }, [supabase, fetchLibrary]);
 
 
 
