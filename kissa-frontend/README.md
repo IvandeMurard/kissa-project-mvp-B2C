@@ -1,5 +1,26 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Configuration
+
+Before running the application, you need to configure environment variables for Supabase.
+
+### Required Environment Variables
+
+- `NEXT_PUBLIC_SUPABASE_URL` : Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_KEY` : Your Supabase anon/public API key
+- `NEXT_PUBLIC_API_URL` : Your backend API URL (optional, defaults to `http://127.0.0.1:8000`)
+
+### Quick Setup
+
+For detailed setup instructions, see [SETUP_ENV.md](./SETUP_ENV.md).
+
+**Quick start:**
+1. Copy `.env.example` to `.env.local` (or create it manually)
+2. Add your Supabase credentials from [Supabase Dashboard](https://supabase.com/dashboard) → Settings → API
+3. For production on Vercel, add these variables in Settings → Environment Variables
+
+> **Security Note**: The `NEXT_PUBLIC_*` variables are public keys designed to be exposed in the browser. Security is ensured by Row Level Security (RLS) policies in Supabase. See [SETUP_ENV.md](./SETUP_ENV.md#sécurité-des-clés-api) for more details.
+
 ## Getting Started
 
 First, run the development server:

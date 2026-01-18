@@ -912,9 +912,35 @@ export default function Home() {
               <p className="text-red-300 text-sm mb-4">
                 Les variables d'environnement Supabase ne sont pas configurées.
               </p>
-              <p className="text-neutral-400 text-xs">
-                Veuillez configurer NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_KEY dans votre environnement.
-              </p>
+              <div className="text-neutral-400 text-xs space-y-3 text-left">
+                <div>
+                  <p className="font-semibold mb-2">Pour le développement local :</p>
+                  <ol className="list-decimal list-inside space-y-1 ml-2">
+                    <li>Créez un fichier <code className="bg-black/50 px-1 rounded">.env.local</code> dans le dossier <code className="bg-black/50 px-1 rounded">kissa-frontend</code></li>
+                    <li>Ajoutez les variables :</li>
+                  </ol>
+                  <pre className="bg-black/50 p-2 rounded mt-2 text-[10px] overflow-x-auto">
+{`NEXT_PUBLIC_SUPABASE_URL=votre_url
+NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
+                  </pre>
+                </div>
+                <div>
+                  <p className="font-semibold mb-2">Pour Vercel (production) :</p>
+                  <ol className="list-decimal list-inside space-y-1 ml-2">
+                    <li>Allez dans votre projet Vercel → Settings → Environment Variables</li>
+                    <li>Ajoutez <code className="bg-black/50 px-1 rounded">NEXT_PUBLIC_SUPABASE_URL</code> et <code className="bg-black/50 px-1 rounded">NEXT_PUBLIC_SUPABASE_KEY</code></li>
+                    <li>Redéployez l'application</li>
+                  </ol>
+                </div>
+                <div className="mt-3 pt-3 border-t border-red-500/30">
+                  <p className="text-red-300 text-[10px]">
+                    Obtenez vos clés Supabase :{" "}
+                    <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline hover:text-red-200">
+                      Dashboard Supabase → Settings → API
+                    </a>
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         ) : filteredAlbums.length === 0 && allAlbums.length === 0 ? (
