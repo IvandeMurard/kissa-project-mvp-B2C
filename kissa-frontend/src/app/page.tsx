@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 
-import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc } from "lucide-react";
+import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink } from "lucide-react";
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -96,7 +96,13 @@ export default function Home() {
 
 
 
-  useEffect(() => { fetchLibrary(); }, []);
+  useEffect(() => { 
+    if (supabase) {
+      fetchLibrary(); 
+    } else {
+      setIsLoadingLibrary(false);
+    }
+  }, [supabase]);
 
 
 
@@ -118,7 +124,8 @@ export default function Home() {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Erreur Supabase:", error);
+        console.error("❌ Erreur Supabase lors du chargement:", error);
+        alert(`❌ Erreur lors du chargement de la bibliothèque : ${error.message || "Erreur inconnue"}`);
         setIsLoadingLibrary(false);
         return;
       }
@@ -143,6 +150,7 @@ export default function Home() {
 
       }));
 
+      console.log(`✅ ${formattedLibrary.length} album(s) chargé(s)`);
       setAllAlbums(formattedLibrary);
 
       const allGenres = formattedLibrary.flatMap(a => a.details.genre || []);
@@ -150,7 +158,9 @@ export default function Home() {
       setAvailableGenres(Array.from(new Set(allGenres)).sort());
 
     } catch (error) { 
-      console.error("Erreur lors du chargement:", error); 
+      console.error("❌ Erreur lors du chargement:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`❌ Erreur lors du chargement de la bibliothèque : ${errorMessage}`);
     } finally {
       setIsLoadingLibrary(false);
     }
@@ -184,8 +194,9 @@ export default function Home() {
       if (currentTrack?.id === id) handleStop();
 
     } catch (error) { 
-      alert("Erreur suppression"); 
-      console.error("Erreur lors de la suppression:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+      console.error("❌ Erreur lors de la suppression:", error);
+      alert(`❌ Erreur lors de la suppression : ${errorMessage}`);
     }
 
   };
@@ -201,9 +212,17 @@ export default function Home() {
       const response = await fetch(`${API_URL}/album/${selectedAlbum.id}`, { method: "DELETE" });
 
       if (!response.ok) {
-        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+        let errorMessage = `Erreur ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (e) {
+          // Si la réponse n'est pas du JSON, utiliser le message par défaut
+        }
+        throw new Error(errorMessage);
       }
 
+      console.log(`✅ Album supprimé : ${selectedAlbum.display.title}`);
       setAllAlbums((prev) => prev.filter((album) => album.id !== selectedAlbum.id));
 
       if (currentTrack?.id === selectedAlbum.id) handleStop();
@@ -211,8 +230,9 @@ export default function Home() {
       setSelectedAlbum(null);
 
     } catch (error) { 
-      alert("Erreur suppression"); 
-      console.error("Erreur lors de la suppression:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+      console.error("❌ Erreur lors de la suppression:", error);
+      alert(`❌ Erreur lors de la suppression : ${errorMessage}`);
     }
 
   };
@@ -223,21 +243,66 @@ export default function Home() {
 
     if (!e.target.files || e.target.files.length === 0) return;
 
+    const file = e.target.files[0];
     setIsLoading(true);
 
-    const formData = new FormData();
+    console.log(`📷 Début de l'analyse de la photo : ${file.name}`);
 
-    formData.append("file", e.target.files[0]);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // Créer un AbortController pour gérer les timeouts
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // Timeout de 2 minutes
 
     try {
 
-      const response = await fetch(`${API_URL}/scan`, { method: "POST", body: formData });
+      const response = await fetch(`${API_URL}/scan`, { 
+        method: "POST", 
+        body: formData,
+        signal: controller.signal
+      });
 
-      if (response.ok) { await fetchLibrary(); e.target.value = ""; } 
+      clearTimeout(timeoutId);
 
-      else { const data = await response.json(); alert("Erreur : " + data.detail); }
+      if (response.ok) { 
+        const result = await response.json();
+        console.log(`✅ Album identifié : ${result.display?.title || 'Album'} - ${result.display?.artist || 'Artiste'}`);
+        
+        // Attendre un court délai pour s'assurer que la base de données est à jour
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Rafraîchir la bibliothèque
+        await fetchLibrary(); 
+        
+        // Réinitialiser l'input
+        e.target.value = ""; 
+      } else { 
+        // Gestion d'erreur détaillée
+        let errorMessage = "Erreur lors de l'analyse de la photo.";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (parseError) {
+          errorMessage = `Erreur ${response.status}: ${response.statusText}`;
+        }
+        console.error("❌ Erreur lors du scan:", errorMessage);
+        alert(`❌ ${errorMessage}`);
+      }
 
-    } catch (error) { alert("Erreur serveur."); } finally { setIsLoading(false); }
+    } catch (error) { 
+      clearTimeout(timeoutId);
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error("⏱️ Timeout : Le traitement prend trop de temps");
+        alert("⏱️ Le traitement prend plus de temps que prévu. Veuillez réessayer.");
+      } else {
+        console.error("❌ Erreur serveur lors du scan:", error);
+        alert(`❌ Erreur serveur : ${error instanceof Error ? error.message : "Impossible de contacter le serveur"}`); 
+      }
+    } finally { 
+      setIsLoading(false); 
+    }
 
   };
 
@@ -295,22 +360,34 @@ export default function Home() {
       console.log("✅ Réponse reçue, status:", response.status);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ Erreur HTTP:", response.status, errorText);
-        alert(`Erreur ${response.status}: ${errorText}`);
+        let errorMessage = `Erreur ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (parseError) {
+          try {
+            const errorText = await response.text();
+            errorMessage = errorText || errorMessage;
+          } catch (e) {
+            // Utiliser le message par défaut si on ne peut pas parser
+          }
+        }
+        console.error("❌ Erreur HTTP:", response.status, errorMessage);
+        alert(`❌ Erreur lors de la recherche : ${errorMessage}`);
         return;
       }
 
       const data = await response.json();
       console.log("📦 Données reçues:", data);
-      console.log("📦 Nombre de résultats:", data.length);
+      console.log(`✅ ${data.length || 0} résultat(s) trouvé(s)`);
 
       setSearchResults(data);
 
     } catch (error) { 
 
       console.error("❌ Erreur lors de la recherche:", error);
-      alert(`Erreur technique lors de la recherche: ${error}`); 
+      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+      alert(`❌ Erreur technique lors de la recherche : ${errorMessage}`); 
 
     } finally { 
 
@@ -341,18 +418,36 @@ export default function Home() {
       
 
       if (response.ok) {
-
+        // Attendre un court délai pour s'assurer que la base de données est à jour
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Rafraîchir la bibliothèque
         await fetchLibrary();
 
+        // Feedback visuel : notification de succès
+        console.log(`✅ Album ajouté : ${candidate.title} - ${candidate.artist}`);
+        
         closeManualSearch();
 
       } else {
-
-        alert("Erreur lors de l'ajout.");
-
+        // Gestion d'erreur détaillée
+        let errorMessage = "Erreur lors de l'ajout.";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (e) {
+          // Si la réponse n'est pas du JSON, utiliser le message par défaut
+          errorMessage = `Erreur ${response.status}: ${response.statusText}`;
+        }
+        alert(`❌ ${errorMessage}`);
       }
 
-    } catch (error) { alert("Erreur serveur."); } finally { setIsLoading(false); }
+    } catch (error) { 
+      console.error("Erreur lors de l'ajout de l'album:", error);
+      alert(`❌ Erreur serveur : ${error instanceof Error ? error.message : "Impossible de contacter le serveur"}`); 
+    } finally { 
+      setIsLoading(false); 
+    }
 
   };
 
@@ -638,10 +733,16 @@ export default function Home() {
 
       {/* MODAL DÉTAILS ALBUM */}
       {selectedAlbum && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#111] border border-white/10 rounded-lg max-w-md w-full shadow-2xl overflow-hidden">
-            {/* Image */}
-            <div className="w-full aspect-square bg-[#000] overflow-hidden">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-black/60 p-4 animate-in fade-in duration-300"
+          onClick={() => setSelectedAlbum(null)}
+        >
+          <div 
+            className="bg-[#111] border border-white/10 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl transition-all duration-300 scale-95 md:scale-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Section Image */}
+            <div className="h-[250px] md:w-1/2 md:h-full bg-[#000] overflow-hidden shrink-0">
               <img 
                 src={selectedAlbum.display.cover_image || "/placeholder.png"} 
                 alt={selectedAlbum.display.title}
@@ -649,26 +750,62 @@ export default function Home() {
               />
             </div>
 
-            {/* Contenu */}
-            <div className="p-6">
-              <div className="mb-4">
-                <h3 className="text-white font-bold text-lg leading-tight mb-1">{selectedAlbum.display.title}</h3>
-                <p className="text-neutral-400 text-sm">{selectedAlbum.display.artist}</p>
+            {/* Section Texte */}
+            <div className="flex flex-col flex-1 p-6 relative overflow-y-auto">
+              {/* Bouton Fermer */}
+              <button 
+                onClick={() => setSelectedAlbum(null)}
+                className="absolute top-4 right-4 z-10 text-neutral-400 hover:text-white transition-colors"
+                aria-label="Fermer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Header */}
+              <div className="mb-4 pr-8">
+                <h3 className="text-xl md:text-2xl font-bold text-white leading-tight mb-1">
+                  {selectedAlbum.display.title}
+                </h3>
+                <p className="text-lg text-zinc-400">
+                  {selectedAlbum.display.artist}
+                </p>
               </div>
 
-              {/* Boutons */}
-              <div className="flex gap-3">
+              {/* Tags */}
+              <div className="flex flex-wrap gap-2 mb-6">
+                {selectedAlbum.details.year && (
+                  <span className="bg-zinc-800 text-zinc-300 text-xs px-2 py-1 rounded">
+                    {selectedAlbum.details.year}
+                  </span>
+                )}
+                {selectedAlbum.details.genre && selectedAlbum.details.genre.length > 0 && (
+                  selectedAlbum.details.genre.map((genre, i) => (
+                    <span key={i} className="bg-zinc-800 text-zinc-300 text-xs px-2 py-1 rounded">
+                      {genre}
+                    </span>
+                  ))
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="mt-auto flex flex-col gap-3">
+                {selectedAlbum.links.spotify_url && (
+                  <a
+                    href={selectedAlbum.links.spotify_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-[#1DB954] hover:bg-[#1ed760] text-white py-3 px-4 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Listen on Spotify
+                  </a>
+                )}
                 <button 
                   onClick={handleDeleteFromModal}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                  className="bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
                 >
-                  <Trash2 className="w-4 h-4" /> Supprimer l'album
-                </button>
-                <button 
-                  onClick={() => setSelectedAlbum(null)}
-                  className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-sm text-sm font-bold uppercase tracking-widest transition-colors"
-                >
-                  Fermer
+                  <Trash2 className="w-4 h-4" />
+                  Supprimer
                 </button>
               </div>
             </div>
