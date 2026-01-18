@@ -62,6 +62,8 @@ export default function Home() {
   const [filteredAlbums, setFilteredAlbums] = useState<Album[]>([]);
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
+  const [isLoadingInProgress, setIsLoadingInProgress] = useState(false);
 
   
 
@@ -103,10 +105,16 @@ export default function Home() {
 
     if (!supabase) {
       console.error("⚠️ Supabase client non initialisé dans fetchLibrary");
-      // Ne pas mettre isLoadingLibrary à false ici - attendre que supabase soit disponible
       return;
     }
 
+    // Protection contre les appels simultanés
+    if (isLoadingInProgress) {
+      console.log("⏸️ Chargement déjà en cours, abandon de l'appel");
+      return;
+    }
+
+    setIsLoadingInProgress(true);
     console.log("🔄 Début du chargement de la bibliothèque...");
     setIsLoadingLibrary(true);
 
@@ -151,11 +159,15 @@ export default function Home() {
       }));
 
       console.log(`✅ ${formattedLibrary.length} album(s) chargé(s) et formatés`);
+      console.log("📋 Détails des albums:", formattedLibrary.map(a => `${a.display.artist} - ${a.display.title}`));
+      
       setAllAlbums(formattedLibrary);
+      console.log("✅ allAlbums mis à jour avec", formattedLibrary.length, "album(s)");
 
       const allGenres = formattedLibrary.flatMap(a => a.details.genre || []);
 
       setAvailableGenres(Array.from(new Set(allGenres)).sort());
+      console.log("✅ Genres mis à jour:", Array.from(new Set(allGenres)).sort());
 
     } catch (error) { 
       console.error("❌ Erreur lors du chargement:", error);
@@ -163,24 +175,39 @@ export default function Home() {
       alert(`❌ Erreur lors du chargement de la bibliothèque : ${errorMessage}`);
     } finally {
       setIsLoadingLibrary(false);
+      setIsLoadingInProgress(false);
       console.log("✅ Chargement terminé, isLoadingLibrary = false");
     }
 
-  }, [supabase]);
+  }, [supabase, isLoadingInProgress]);
 
 
 
   useEffect(() => { 
-    console.log("🔄 useEffect de chargement déclenché, supabase:", supabase ? "disponible" : "null");
+    console.log("🔄 useEffect de chargement déclenché, supabase:", supabase ? "disponible" : "null", "hasAttemptedLoad:", hasAttemptedLoad);
     
-    if (supabase) {
-      console.log("📚 Appel de fetchLibrary...");
-      fetchLibrary(); 
-    } else {
+    if (!supabase) {
       console.log("⏳ Supabase non disponible, attente...");
-      // Ne pas mettre isLoadingLibrary à false ici - attendre que supabase soit disponible
+      // Mettre isLoadingLibrary à false après un délai si supabase reste null
+      const timeout = setTimeout(() => {
+        console.log("⏱️ Timeout: supabase toujours null après 1 seconde, arrêt du chargement");
+        setIsLoadingLibrary(false);
+      }, 1000);
+      
+      return () => {
+        clearTimeout(timeout);
+      };
     }
-  }, [supabase, fetchLibrary]);
+    
+    // Ne charger qu'une fois par changement de supabase
+    if (!hasAttemptedLoad) {
+      console.log("📚 Première tentative de chargement, appel de fetchLibrary...");
+      setHasAttemptedLoad(true);
+      fetchLibrary();
+    } else {
+      console.log("⏭️ Chargement déjà tenté, ignore cet appel");
+    }
+  }, [supabase, fetchLibrary, hasAttemptedLoad]);
 
 
 
@@ -484,6 +511,8 @@ export default function Home() {
 
   // Logique de filtrage et tri
   useEffect(() => {
+    console.log("🔄 useEffect de filtrage déclenché, allAlbums:", allAlbums.length, "searchQuery:", searchQuery, "selectedGenre:", selectedGenre);
+    
     let filtered = [...allAlbums];
 
     // Filtrage par recherche
@@ -493,11 +522,13 @@ export default function Home() {
         album.display.title.toLowerCase().includes(queryLower) ||
         album.display.artist.toLowerCase().includes(queryLower)
       );
+      console.log(`🔍 Filtrage par recherche "${searchQuery}": ${filtered.length} résultat(s)`);
     }
 
     // Filtrage par genre
     if (selectedGenre) {
       filtered = filtered.filter((album) => album.details.genre.includes(selectedGenre));
+      console.log(`🎵 Filtrage par genre "${selectedGenre}": ${filtered.length} résultat(s)`);
     }
 
     // Tri
@@ -517,6 +548,7 @@ export default function Home() {
       }
     });
 
+    console.log(`✅ Albums filtrés: ${filtered.length} sur ${allAlbums.length} total`);
     setFilteredAlbums(filtered);
   }, [allAlbums, searchQuery, selectedGenre, sortOption]);
 
@@ -872,6 +904,42 @@ export default function Home() {
               <div className="w-full h-full bg-neutral-800/50"></div>
             </div>
           ))
+        ) : !supabase ? (
+          // Message d'erreur si Supabase n'est pas configuré
+          <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+            <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-6 max-w-md">
+              <h3 className="text-white font-bold text-lg mb-2">Configuration manquante</h3>
+              <p className="text-red-300 text-sm mb-4">
+                Les variables d'environnement Supabase ne sont pas configurées.
+              </p>
+              <p className="text-neutral-400 text-xs">
+                Veuillez configurer NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_KEY dans votre environnement.
+              </p>
+            </div>
+          </div>
+        ) : filteredAlbums.length === 0 && allAlbums.length === 0 ? (
+          // Message si aucune donnée n'est chargée
+          <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+            <div className="bg-neutral-900/50 border border-white/10 rounded-lg p-6 max-w-md">
+              <h3 className="text-white font-bold text-lg mb-2">Collection vide</h3>
+              <p className="text-neutral-400 text-sm mb-4">
+                Aucun album dans votre collection.
+              </p>
+              <p className="text-neutral-500 text-xs">
+                Utilisez le bouton caméra pour scanner un album ou ajoutez-en un manuellement.
+              </p>
+            </div>
+          </div>
+        ) : filteredAlbums.length === 0 ? (
+          // Message si les filtres ne donnent aucun résultat
+          <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+            <div className="bg-neutral-900/50 border border-white/10 rounded-lg p-6 max-w-md">
+              <h3 className="text-white font-bold text-lg mb-2">Aucun résultat</h3>
+              <p className="text-neutral-400 text-sm">
+                Aucun album ne correspond à vos critères de recherche.
+              </p>
+            </div>
+          </div>
         ) : (
           filteredAlbums.map((album) => (
 
