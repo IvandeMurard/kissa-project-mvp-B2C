@@ -785,6 +785,7 @@ export default function Home() {
           onClick={() => setSelectedAlbum(null)}
         >
           <div 
+            key={selectedAlbum.id}
             className="bg-[#111] border border-white/10 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl"
             onClick={(e) => e.stopPropagation()}
             style={{ animation: 'scaleIn 0.3s ease-out' }}
