@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 
-import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink } from "lucide-react";
+import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit } from "lucide-react";
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -986,17 +986,32 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                 }
               }}
 
-              className={`w-full h-full object-cover transition-transform duration-500 ease-out md:group-hover:-translate-x-1/2 group-hover:scale-110 md:group-hover:scale-100 cursor-pointer md:cursor-default ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
+              className={`w-full h-full object-cover transition-transform duration-500 ease-out md:relative md:z-10 md:group-hover:-translate-x-full group-hover:scale-110 md:group-hover:scale-100 cursor-pointer md:cursor-default ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
 
             />
 
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm translate-y-full group-hover:translate-y-0 md:translate-y-0 md:translate-x-full md:group-hover:translate-x-0 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] p-5 flex flex-col md:w-1/2 md:right-0">
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm translate-y-full group-hover:translate-y-0 md:translate-y-0 md:z-0 transition-opacity duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] p-5 flex flex-col md:opacity-0 md:group-hover:opacity-100">
 
               <div className="flex justify-between items-start mb-2">
 
                 <span className="text-[9px] text-neutral-500 uppercase">{album.details.year} • {album.details.label}</span>
 
-                <button onClick={(e) => handleDelete(album.id, e)} className="text-neutral-700 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // TODO: Ouvrir modale d'édition
+                      setSelectedAlbum(album);
+                    }} 
+                    className="text-neutral-700 hover:text-blue-400 transition-colors"
+                    title="Éditer"
+                  >
+                    <Edit className="w-3 h-3" />
+                  </button>
+                  <button onClick={(e) => handleDelete(album.id, e)} className="text-neutral-700 hover:text-red-500 transition-colors" title="Supprimer">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
 
               </div>
 
