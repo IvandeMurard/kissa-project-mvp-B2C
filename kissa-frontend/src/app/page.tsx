@@ -785,8 +785,9 @@ export default function Home() {
           onClick={() => setSelectedAlbum(null)}
         >
           <div 
-            className="bg-[#111] border border-white/10 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl transition-all duration-300 scale-95 md:scale-100"
+            className="bg-[#111] border border-white/10 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl"
             onClick={(e) => e.stopPropagation()}
+            style={{ animation: 'scaleIn 0.3s ease-out' }}
           >
             {/* Section Image */}
             <div className="h-[250px] md:w-1/2 md:h-full bg-[#000] overflow-hidden shrink-0">
@@ -810,7 +811,7 @@ export default function Home() {
 
               {/* Header */}
               <div className="mb-4 pr-8">
-                <h3 className="text-xl md:text-2xl font-bold text-white leading-tight mb-1">
+                <h3 className="text-2xl font-bold text-white leading-tight mb-1">
                   {selectedAlbum.display.title}
                 </h3>
                 <p className="text-lg text-zinc-400">
