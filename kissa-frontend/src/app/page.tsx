@@ -979,13 +979,18 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
 
               alt={album.display.title}
 
-              onClick={() => setSelectedAlbum(album)}
+              onClick={(e) => {
+                // Sur mobile uniquement : ouvrir la modale
+                if (window.innerWidth < 768) {
+                  setSelectedAlbum(album);
+                }
+              }}
 
-              className={`w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110 cursor-pointer ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
+              className={`w-full h-full object-cover transition-transform duration-500 ease-out md:group-hover:-translate-x-1/2 group-hover:scale-110 md:group-hover:scale-100 cursor-pointer md:cursor-default ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
 
             />
 
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] p-5 flex flex-col">
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm translate-y-full group-hover:translate-y-0 md:translate-y-0 md:translate-x-full md:group-hover:translate-x-0 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] p-5 flex flex-col md:w-1/2 md:right-0">
 
               <div className="flex justify-between items-start mb-2">
 
