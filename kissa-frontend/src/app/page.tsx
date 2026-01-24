@@ -1023,11 +1023,32 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
 
               </div>
 
-              <div className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-700 pr-2 space-y-1">
+              {album.details.genre && album.details.genre.length > 0 && (
+                <div className="mb-3">
+                  <h4 className="text-[10px] text-neutral-500 uppercase mb-2 tracking-wider">Genre{album.details.genre.length > 1 ? 's' : ''}</h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {album.details.genre.map((g, i) => (
+                      <span key={i} className="inline-block text-[10px] bg-zinc-800 text-zinc-300 border border-zinc-700 rounded px-2 py-1">
+                        {g}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                {album.details.genre.map((g, i) => ( <span key={i} className="inline-block text-[9px] border border-neutral-700 rounded px-1 mr-1 mb-1 text-neutral-400">{g}</span> ))}
-
-              </div>
+              {album.details.tracklist && album.details.tracklist.length > 0 && (
+                <div className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-700 pr-2 mb-3">
+                  <h4 className="text-[10px] text-neutral-500 uppercase mb-2 tracking-wider">Tracklist</h4>
+                  <ul className="space-y-1">
+                    {album.details.tracklist.map((track, i) => (
+                      <li key={i} className="text-[10px] text-neutral-300 leading-relaxed">
+                        <span className="text-neutral-500 mr-2">{String(i + 1).padStart(2, '0')}.</span>
+                        {track}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {album.links.spotify_id && (
 
