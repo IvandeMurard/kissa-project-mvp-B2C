@@ -175,7 +175,7 @@ export function AlbumDetailView({
   const padding = compact ? "p-3" : "p-6";
 
   return (
-    <div className={`flex flex-col flex-1 ${padding} relative ${compact ? 'overflow-y-auto h-full' : 'overflow-y-auto'}`}>
+    <div className={`flex flex-col flex-1 h-full ${padding} relative ${compact ? 'overflow-y-auto' : 'overflow-y-auto'}`}>
       {/* Header */}
       <div className={`mb-4 ${compact ? 'mb-2' : ''} ${showActions && !compact ? 'pr-8' : ''}`}>
         <h3 className={`${headerSize} font-bold text-white leading-tight mb-1`}>

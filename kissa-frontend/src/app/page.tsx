@@ -718,20 +718,8 @@ export default function Home() {
 
           {/* BARRE D'OUTILS */}
           <div className="px-6 py-4 border-b border-white/5">
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-              {/* Recherche */}
-              <div className="relative group w-full md:w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 group-focus-within:text-white" />
-                <input
-                  type="text"
-                  placeholder="Artist, Title, Cat. No..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-[#111] border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-white/20 transition-all placeholder:text-neutral-700 text-white"
-                />
-              </div>
-
-              {/* Tri */}
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-end">
+              {/* Tri uniquement - Recherche supprimée */}
               <div className="flex items-center gap-2">
                 <label className="amp-label text-neutral-500">SORT:</label>
                 <select
@@ -1060,7 +1048,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
             </div>
 
             {/* Section Texte avec AlbumDetailView */}
-            <div className={`flex flex-col flex-1 relative transition-all duration-300 ${
+            <div className={`flex flex-col flex-1 relative transition-all duration-300 max-h-full overflow-hidden ${
               modalActiveTab === "sleeve" ? "md:w-3/5" : "md:w-1/2"
             }`}>
               {/* Bouton Fermer */}
