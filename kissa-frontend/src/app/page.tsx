@@ -669,9 +669,8 @@ export default function Home() {
       {/* HEADER - Affiché uniquement pour SHELF */}
       {currentView === "SHELF" && (
         <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-md border-b border-white/5 px-6 py-4 flex flex-col md:flex-row justify-between gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             <h1 className="lightbox-sign inline-block rounded-xl px-4 py-2 text-sm">喫茶 Kissa</h1>
-            <span className="text-[10px] text-neutral-600 border border-neutral-800 px-2 py-0.5 rounded-full">{filteredAlbums.length} LP</span>
             {/* Toggle Mode Gestion */}
             <button
               onClick={() => {
@@ -694,9 +693,10 @@ export default function Home() {
                 placeholder="Artist, Title, Cat. No..." 
                 value={searchQuery} 
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#111] border border-[#222] rounded-full py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-white/20 transition-all placeholder:text-neutral-700"
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-full py-1.5 pl-9 pr-4 text-xs text-zinc-100 focus:outline-none focus:border-amber-100/50 transition-all placeholder:text-zinc-500"
               />
             </div>
+            <span className="bg-zinc-800 text-zinc-300 border border-zinc-700 font-mono text-xs px-2 py-1 rounded-sm">{filteredAlbums.length} LP</span>
           </div>
         </header>
       )}
@@ -709,9 +709,9 @@ export default function Home() {
           {/* FILTRES GENRES */}
           {availableGenres.length > 0 && (
             <div className="px-6 py-4 flex gap-2 overflow-x-auto scrollbar-hide">
-              <button onClick={() => setSelectedGenre(null)} className={`amp-label px-3 py-1 rounded-sm transition-colors ${!selectedGenre ? 'bg-white text-black' : 'text-neutral-500 hover:text-white'}`}>ALL</button>
+              <button onClick={() => setSelectedGenre(null)} className={`amp-label text-sm font-semibold px-3 py-1 rounded-sm transition-colors ${!selectedGenre ? 'bg-amber-100 text-black border border-amber-100 font-bold shadow-lg shadow-amber-500/20' : 'text-zinc-400 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'}`}>ALL</button>
               {availableGenres.map(g => (
-                <button key={g} onClick={() => { sounds.playSwitch(); setSelectedGenre(selectedGenre === g ? null : g); }} className={`text-[10px] uppercase tracking-wider px-3 py-1 rounded-sm transition-colors ${selectedGenre === g ? 'bg-white text-black' : 'text-neutral-500 hover:text-white'}`}>{g}</button>
+                <button key={g} onClick={() => { sounds.playSwitch(); setSelectedGenre(selectedGenre === g ? null : g); }} className={`amp-label text-sm font-semibold uppercase tracking-wider px-3 py-1 rounded-sm transition-colors ${selectedGenre === g ? 'bg-amber-100 text-black border border-amber-100 font-bold shadow-lg shadow-amber-500/20' : 'text-zinc-400 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'}`}>{g}</button>
               ))}
             </div>
           )}
