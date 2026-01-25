@@ -6,6 +6,10 @@ import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, Externa
 
 import { createClient } from "@supabase/supabase-js";
 
+import { useHaptic } from "@/hooks/useHaptic";
+import { useKissaSound } from "@/hooks/useKissaSound";
+import { SoundToggle } from "@/components/SoundToggle";
+
 // --- TYPES ---
 
 interface Album {
@@ -97,6 +101,9 @@ export default function Home() {
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
 
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // Haptic feedback hook
+  const haptic = useHaptic();
 
   // Déclaration de fetchLibrary avec useCallback AVANT le useEffect
   const fetchLibrary = useCallback(async () => {
@@ -211,7 +218,13 @@ export default function Home() {
 
 
 
-  const handlePlay = (album: Album) => { if (album.links.spotify_id) { setCurrentTrack(album); setIsPlaying(true); }};
+  const handlePlay = (album: Album) => { 
+    if (album.links.spotify_id) { 
+      sounds.playVinylStart();
+      setCurrentTrack(album); 
+      setIsPlaying(true); 
+    }
+  };
 
   const handleStop = () => { setIsPlaying(false); setCurrentTrack(null); };
 
@@ -222,6 +235,8 @@ export default function Home() {
     e.stopPropagation();
 
     if (!confirm("Supprimer cet album ?")) return;
+
+    haptic.heavy();
 
     try {
 
@@ -248,6 +263,8 @@ export default function Home() {
   const handleDeleteFromModal = async () => {
 
     if (!selectedAlbum) return;
+
+    haptic.heavy();
 
     try {
 
@@ -316,6 +333,7 @@ export default function Home() {
         await fetchLibrary(); 
 
         setSuccessToast(`Album identifié : ${title} - ${artist}`);
+        haptic.medium();
 
         e.target.value = ""; 
       } else { 
@@ -577,13 +595,15 @@ export default function Home() {
 
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-500 group-focus-within:text-white" />
 
-            <input type="text" placeholder="Filtrer..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+            <input type="text" placeholder="Artist, Title, Cat. No..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
 
               className="w-full bg-[#111] border border-[#222] rounded-full py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-white/20 transition-all placeholder:text-neutral-700"/>
 
           </div>
 
           <div className="flex items-center gap-2">
+
+            <SoundToggle />
 
             <button onClick={() => setShowManualSearch(true)} className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all" title="Ajout manuel">
 
@@ -613,11 +633,11 @@ export default function Home() {
 
         <div className="px-6 py-4 flex gap-2 overflow-x-auto scrollbar-hide">
 
-          <button onClick={() => setSelectedGenre(null)} className={`text-[10px] uppercase tracking-wider px-3 py-1 rounded-sm transition-colors ${!selectedGenre ? 'bg-white text-black' : 'text-neutral-500 hover:text-white'}`}>Tout</button>
+          <button onClick={() => setSelectedGenre(null)} className={`amp-label px-3 py-1 rounded-sm transition-colors ${!selectedGenre ? 'bg-white text-black' : 'text-neutral-500 hover:text-white'}`}>ALL</button>
 
           {availableGenres.map(g => (
 
-            <button key={g} onClick={() => setSelectedGenre(selectedGenre === g ? null : g)} className={`text-[10px] uppercase tracking-wider px-3 py-1 rounded-sm transition-colors ${selectedGenre === g ? 'bg-white text-black' : 'text-neutral-500 hover:text-white'}`}>{g}</button>
+            <button key={g} onClick={() => { sounds.playSwitch(); setSelectedGenre(selectedGenre === g ? null : g); }} className={`text-[10px] uppercase tracking-wider px-3 py-1 rounded-sm transition-colors ${selectedGenre === g ? 'bg-white text-black' : 'text-neutral-500 hover:text-white'}`}>{g}</button>
 
           ))}
 
@@ -641,7 +661,7 @@ export default function Home() {
 
             <div className="p-4 border-b border-white/10 flex justify-between items-center">
 
-              <h3 className="text-sm font-bold uppercase tracking-widest text-white">Ajout Manuel</h3>
+              <h3 className="amp-label text-sm font-semibold text-white">DIGGING</h3>
 
               <button onClick={closeManualSearch} className="text-neutral-500 hover:text-white"><X className="w-4 h-4" /></button>
 
@@ -661,7 +681,7 @@ export default function Home() {
 
                   type="text" 
 
-                  placeholder="Ex: Apparat The Devil's Walk" 
+                  placeholder="Artist, Title, Cat. No..." 
 
                   value={manualSearchQuery}
 
@@ -709,7 +729,7 @@ export default function Home() {
 
                  <div className="text-center py-8 text-neutral-700 text-xs italic">
 
-                   Tape le nom d'un artiste ou d'un album...
+                   Artist, Title, Cat. No...
 
                  </div>
 
@@ -824,13 +844,13 @@ export default function Home() {
               {/* Tags */}
               <div className="flex flex-wrap gap-2 mb-6">
                 {selectedAlbum.details.year && (
-                  <span className="bg-zinc-800 text-zinc-300 text-xs px-2 py-1 rounded">
+                  <span className="amp-label bg-zinc-800 text-zinc-300 px-2 py-1 rounded">
                     {selectedAlbum.details.year}
                   </span>
                 )}
                 {selectedAlbum.details.genre && selectedAlbum.details.genre.length > 0 && (
                   selectedAlbum.details.genre.map((genre, i) => (
-                    <span key={i} className="bg-zinc-800 text-zinc-300 text-xs px-2 py-1 rounded">
+                    <span key={i} className="amp-label bg-zinc-800 text-zinc-300 px-2 py-1 rounded">
                       {genre}
                     </span>
                   ))
@@ -844,6 +864,7 @@ export default function Home() {
                     href={selectedAlbum.links.spotify_url}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => sounds.playVinylStart()}
                     className="bg-[#1DB954] hover:bg-[#1ed760] text-white py-3 px-4 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
                   >
                     <ExternalLink className="w-4 h-4" />
@@ -852,10 +873,10 @@ export default function Home() {
                 )}
                 <button 
                   onClick={handleDeleteFromModal}
-                  className="bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                  className="amp-label bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-sm font-semibold transition-colors flex items-center justify-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Supprimer
+                  DISCARD
                 </button>
               </div>
             </div>
@@ -873,7 +894,7 @@ export default function Home() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 group-focus-within:text-white" />
             <input
               type="text"
-              placeholder="Rechercher un album/artiste..."
+              placeholder="Artist, Title, Cat. No..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-[#111] border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-white/20 transition-all placeholder:text-neutral-700 text-white"
@@ -882,7 +903,7 @@ export default function Home() {
 
           {/* Tri */}
           <div className="flex items-center gap-2">
-            <label className="text-xs text-neutral-500 uppercase tracking-wider">Trier par:</label>
+            <label className="amp-label text-neutral-500">SORT:</label>
             <select
               value={sortOption}
               onChange={(e) => setSortOption(e.target.value as "recent" | "artist" | "year")}
@@ -950,12 +971,12 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
           // Message si aucune donnée n'est chargée
           <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
             <div className="bg-neutral-900/50 border border-white/10 rounded-lg p-6 max-w-md">
-              <h3 className="text-white font-bold text-lg mb-2">Collection vide</h3>
+              <h3 className="amp-label text-white text-lg mb-2 font-semibold">YOUR SHELF IS EMPTY</h3>
               <p className="text-neutral-400 text-sm mb-4">
-                Aucun album dans votre collection.
+                Start digging.
               </p>
               <p className="text-neutral-500 text-xs">
-                Utilisez le bouton caméra pour scanner un album ou ajoutez-en un manuellement.
+                Use the camera to scan or dig manually.
               </p>
             </div>
           </div>
@@ -963,9 +984,9 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
           // Message si les filtres ne donnent aucun résultat
           <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
             <div className="bg-neutral-900/50 border border-white/10 rounded-lg p-6 max-w-md">
-              <h3 className="text-white font-bold text-lg mb-2">Aucun résultat</h3>
+              <h3 className="amp-label text-white text-lg mb-2 font-semibold">NO MATCH</h3>
               <p className="text-neutral-400 text-sm">
-                Aucun album ne correspond à vos critères de recherche.
+                Try another query.
               </p>
             </div>
           </div>
@@ -981,6 +1002,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
               alt={album.display.title}
 
               onClick={(e) => {
+                haptic.light();
                 // Sur mobile uniquement : ouvrir la modale
                 if (window.innerWidth < 768) {
                   setSelectedAlbum(album);
@@ -995,7 +1017,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
 
               <div className="flex justify-between items-start mb-2">
 
-                <span className="text-[9px] text-neutral-500 uppercase">{album.details.year} • {album.details.label}</span>
+                <span className="amp-label">{album.details.year} • {album.details.label}</span>
 
                 <div className="flex gap-2">
                   <button 
@@ -1009,7 +1031,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                   >
                     <Edit className="w-3 h-3" />
                   </button>
-                  <button onClick={(e) => handleDelete(album.id, e)} className="text-neutral-700 hover:text-red-500 transition-colors" title="Supprimer">
+                  <button onClick={(e) => handleDelete(album.id, e)} className="text-neutral-700 hover:text-red-500 transition-colors" title="DISCARD">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
@@ -1026,10 +1048,10 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
 
               {album.details.genre && album.details.genre.length > 0 && (
                 <div className="mb-3">
-                  <h4 className="text-[10px] text-neutral-500 uppercase mb-2 tracking-wider">Genre{album.details.genre.length > 1 ? 's' : ''}</h4>
+                  <h4 className="amp-label mb-2">GENRE{album.details.genre.length > 1 ? 'S' : ''}</h4>
                   <div className="flex flex-wrap gap-1.5">
                     {album.details.genre.map((g, i) => (
-                      <span key={i} className="inline-block text-[10px] bg-zinc-800 text-zinc-300 border border-zinc-700 rounded px-2 py-1">
+                      <span key={i} className="amp-label inline-block bg-zinc-800 text-zinc-300 border border-zinc-700 rounded px-2 py-1">
                         {g}
                       </span>
                     ))}
@@ -1039,7 +1061,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
 
               {album.details.tracklist && album.details.tracklist.length > 0 && (
                 <div className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-700 pr-2 mb-3">
-                  <h4 className="text-[10px] text-neutral-500 uppercase mb-2 tracking-wider">Tracklist</h4>
+                  <h4 className="amp-label mb-2">Tracklist</h4>
                   <ul className="space-y-1">
                     {album.details.tracklist.map((track, i) => (
                       <li key={i} className="text-[10px] text-neutral-300 leading-relaxed">
@@ -1053,9 +1075,9 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
 
               {album.links.spotify_id && (
 
-                <button onClick={() => handlePlay(album)} className="mt-3 w-full bg-white text-black py-2 rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2">
+                <button onClick={() => handlePlay(album)} className="amp-label mt-3 w-full bg-white text-black py-2 rounded-sm font-semibold hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2">
 
-                  <Play className="w-3 h-3 fill-current" /> Ecouter
+                  <Play className="w-3 h-3 fill-current" /> PLAY
 
                 </button>
 
