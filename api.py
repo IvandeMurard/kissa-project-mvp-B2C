@@ -2,19 +2,6 @@
 === MIGRATION SUPABASE ===
 À exécuter manuellement dans Supabase SQL Editor :
 
--- Migration : Ajout des colonnes pour le compagnon d'écoute
-ALTER TABLE albums 
-ADD COLUMN IF NOT EXISTS purchase_data JSONB DEFAULT NULL,
-ADD COLUMN IF NOT EXISTS editorial_notes TEXT DEFAULT NULL;
-
-Ces colonnes permettent de stocker :
-- purchase_data : La mémoire personnelle (date, location, price, condition)
-- editorial_notes : La mémoire collective (texte généré par l'IA)
-
--- Migration : Localisation physique (Shelf Location)
-ALTER TABLE albums
-ADD COLUMN IF NOT EXISTS storage_location TEXT DEFAULT NULL;
-
 -- Migration : Focus Track Indices (Pistes favorites pour DJs/Sélecteurs)
 ALTER TABLE albums
 ADD COLUMN IF NOT EXISTS focus_track_indices INTEGER[] DEFAULT '{}';
