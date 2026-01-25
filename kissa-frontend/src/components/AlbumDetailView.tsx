@@ -182,10 +182,12 @@ export function AlbumDetailView({
         onUpdateAlbum(updated);
       }
     } catch (error) {
-      // Rollback en cas d'erreur
-      setOptimisticFocusIndices(previousIndices);
-      showErrorToast("Erreur lors de la mise à jour. Veuillez réessayer.");
-      console.error("❌ Erreur lors du toggle focus track:", error);
+      // Rollback différé ~1 s : la piste reste ambrée puis s'éteint pour signaler que l'action n'a pas été enregistrée
+      setTimeout(() => {
+        setOptimisticFocusIndices(previousIndices);
+        showErrorToast("Erreur lors de la mise à jour. Veuillez réessayer.");
+        console.error("❌ Erreur lors du toggle focus track:", error);
+      }, 1000);
     } finally {
       setIsTogglingTrack(false);
     }
@@ -343,16 +345,15 @@ export function AlbumDetailView({
                   <li
                     key={i}
                     onClick={() => handleToggleFocusTrack(localAlbum.id, i)}
-                    className="flex items-center py-1 cursor-pointer group border-l-2 border-transparent hover:border-amber-500/50 pl-2 transition-all"
+                    className="flex items-center w-full py-1 cursor-pointer group border-l border-transparent hover:border-amber-500/40 pl-2 transition-all"
                   >
                     <span
-                      className={`w-8 flex-shrink-0 text-zinc-600 ${isFocus ? "text-[#FFB347] font-bold" : ""}`}
-                      style={{ fontFamily: "var(--font-technical)" }}
+                      className={`w-8 flex-shrink-0 font-mono ${isFocus ? "text-[#FFB347] font-bold" : "text-zinc-600"}`}
                     >
                       {i + 1}.
                     </span>
                     <span
-                      className={`flex-1 font-sans text-zinc-300 group-hover:text-zinc-100 ${isFocus ? "text-[#FFB347] font-medium" : ""}`}
+                      className={`flex-1 font-sans ${isFocus ? "text-[#FFB347] font-medium" : "text-zinc-300 group-hover:text-zinc-100"}`}
                     >
                       {track}
                     </span>
