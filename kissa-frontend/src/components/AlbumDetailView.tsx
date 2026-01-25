@@ -44,11 +44,28 @@ export function AlbumDetailView({
   const [isSavingPurchaseData, setIsSavingPurchaseData] = useState(false);
   const [isTogglingTrack, setIsTogglingTrack] = useState(false);
   const [localAlbum, setLocalAlbum] = useState<Album>(initialAlbum);
+  const [optimisticFocusIndices, setOptimisticFocusIndices] = useState<number[]>(
+    initialAlbum.focus_track_indices || []
+  );
+  const [errorToast, setErrorToast] = useState<string | null>(null);
 
-  // Synchroniser localAlbum avec initialAlbum si l'album change
+  // Synchroniser localAlbum et optimisticFocusIndices avec initialAlbum si l'album change
   useEffect(() => {
     setLocalAlbum(initialAlbum);
+    setOptimisticFocusIndices(initialAlbum.focus_track_indices || []);
   }, [initialAlbum.id]);
+
+  // Auto-dismiss du toast d'erreur
+  useEffect(() => {
+    if (!errorToast) return;
+    const timer = setTimeout(() => setErrorToast(null), 3000);
+    return () => clearTimeout(timer);
+  }, [errorToast]);
+
+  // Fonction helper pour afficher le toast d'erreur
+  const showErrorToast = (message: string) => {
+    setErrorToast(message);
+  };
 
   // Fonction pour générer les notes éditoriales
   const handleGenerateNotes = async (albumId: string) => {
@@ -121,12 +138,23 @@ export function AlbumDetailView({
     }
   };
 
-  // Fonction pour toggle le statut "Focus Track" d'une piste
+  // Fonction pour toggle le statut "Focus Track" d'une piste (Optimistic UI)
   const handleToggleFocusTrack = async (albumId: string, trackIndex: number) => {
-    if (isTogglingTrack) return; // Éviter les clics multiples
+    if (isTogglingTrack) return; // Éviter les clics multiples simultanés
     
+    // Sauvegarder l'état actuel pour rollback en cas d'erreur
+    const previousIndices = [...optimisticFocusIndices];
+    
+    // Calculer la nouvelle liste immédiatement
+    const newIndices = previousIndices.includes(trackIndex)
+      ? previousIndices.filter(i => i !== trackIndex)
+      : [...previousIndices, trackIndex].sort((a, b) => a - b);
+    
+    // Mise à jour optimiste immédiate
+    setOptimisticFocusIndices(newIndices);
     setIsTogglingTrack(true);
 
+    // Appel API en arrière-plan
     try {
       const response = await fetch(`${API_URL}/albums/${albumId}/toggle-track/${trackIndex}`, {
         method: "PATCH",
@@ -139,10 +167,14 @@ export function AlbumDetailView({
 
       const updatedAlbum = await response.json();
       
-      // Mettre à jour l'album local avec les nouveaux focus_track_indices
+      // Synchroniser avec la réponse serveur
+      const serverIndices = updatedAlbum.focus_track_indices || [];
+      setOptimisticFocusIndices(serverIndices);
+      
+      // Mettre à jour localAlbum et notifier le parent
       const updated = {
         ...localAlbum,
-        focus_track_indices: updatedAlbum.focus_track_indices || [],
+        focus_track_indices: serverIndices,
       };
       setLocalAlbum(updated);
       
@@ -150,6 +182,9 @@ export function AlbumDetailView({
         onUpdateAlbum(updated);
       }
     } catch (error) {
+      // Rollback en cas d'erreur
+      setOptimisticFocusIndices(previousIndices);
+      showErrorToast("Erreur lors de la mise à jour. Veuillez réessayer.");
       console.error("❌ Erreur lors du toggle focus track:", error);
     } finally {
       setIsTogglingTrack(false);
@@ -311,14 +346,14 @@ export function AlbumDetailView({
           <div className={compact ? "space-y-1" : "space-y-2"}>
             {localAlbum.details.tracklist && localAlbum.details.tracklist.length > 0 ? (
               localAlbum.details.tracklist.map((track, i) => {
-                const isFocus = localAlbum.focus_track_indices?.includes(i) || false;
+                const isFocus = optimisticFocusIndices.includes(i);
                 return (
                   <div
                     key={i}
                     onClick={() => handleToggleFocusTrack(localAlbum.id, i)}
                     className={`group flex items-center gap-2 w-full cursor-pointer transition-all duration-200 hover:bg-white/5 rounded px-2 ${
                       compact ? 'py-0.5' : 'py-1.5'
-                    } ${isTogglingTrack ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    }`}
                   >
                     {/* Zone Gauche - Ghost Marker */}
                     <div className="w-8 flex items-center justify-center flex-shrink-0">
@@ -552,6 +587,13 @@ export function AlbumDetailView({
         >
           <Play className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} fill-current`} /> PLAY
         </button>
+      )}
+
+      {/* Toast d'erreur */}
+      {errorToast && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-4">
+          {errorToast}
+        </div>
       )}
     </div>
   );
