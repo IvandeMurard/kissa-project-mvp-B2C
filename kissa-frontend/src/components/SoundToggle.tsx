@@ -1,6 +1,6 @@
 "use client";
 
-import { Speaker, SpeakerX } from "lucide-react";
+import { Speaker, VolumeX } from "lucide-react";
 import { useSoundContext } from "@/contexts/SoundContext";
 import { useKissaSound } from "@/hooks/useKissaSound";
 
@@ -33,7 +33,7 @@ export function SoundToggle() {
       aria-label={isMuted ? "Activer le son" : "Désactiver le son"}
     >
       {isMuted ? (
-        <SpeakerX className="w-3.5 h-3.5" />
+        <VolumeX className="w-3.5 h-3.5" />
       ) : (
         <Speaker className="w-3.5 h-3.5" />
       )}
