@@ -104,9 +104,22 @@ export default function Home() {
   const [isPlaying, setIsPlaying] = useState(false);
 
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
-  const [modalActiveTab, setModalActiveTab] = useState<"tracklist" | "sleeve">("tracklist");
+  const [modalActiveTab, setModalActiveTab] = useState<"tracklist" | "sleeve" | "story">("tracklist");
 
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // Bloquer le scroll du body quand la modale est ouverte
+  useEffect(() => {
+    if (selectedAlbum) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [selectedAlbum]);
 
   // --- ÉTATS VUES ET MODE GESTION ---
   const [currentView, setCurrentView] = useState<"SHELF" | "DIG" | "SETUP">("DIG");

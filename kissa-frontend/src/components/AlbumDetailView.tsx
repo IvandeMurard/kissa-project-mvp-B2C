@@ -22,7 +22,7 @@ interface AlbumDetailViewProps {
   API_URL: string;
   sounds?: { playVinylStart: () => void };
   compact?: boolean;
-  onTabChange?: (tab: "tracklist" | "sleeve") => void;
+  onTabChange?: (tab: "tracklist" | "sleeve" | "story") => void;
 }
 
 export function AlbumDetailView({
@@ -37,7 +37,7 @@ export function AlbumDetailView({
   compact = false,
   onTabChange,
 }: AlbumDetailViewProps) {
-  const [activeTab, setActiveTab] = useState<"tracklist" | "sleeve">("tracklist");
+  const [activeTab, setActiveTab] = useState<"tracklist" | "sleeve" | "story">("tracklist");
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
   const [isSavingPurchaseData, setIsSavingPurchaseData] = useState(false);
   const [localAlbum, setLocalAlbum] = useState<Album>(initialAlbum);
@@ -230,6 +230,19 @@ export function AlbumDetailView({
         >
           SLEEVE NOTES
         </button>
+        <button
+          onClick={() => {
+            setActiveTab("story");
+            onTabChange?.("story");
+          }}
+          className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
+            activeTab === "story"
+              ? "text-white border-b-2 border-white"
+              : "text-zinc-400 hover:text-zinc-300"
+          }`}
+        >
+          STORY
+        </button>
       </div>
 
       {/* Contenu des onglets */}
@@ -247,8 +260,8 @@ export function AlbumDetailView({
               <p className={`text-zinc-500 ${contentSize}`}>Aucune piste disponible</p>
             )}
           </div>
-        ) : (
-          /* Onglet SLEEVE NOTES */
+        ) : activeTab === "sleeve" ? (
+          /* Onglet SLEEVE NOTES - Acquisition Log uniquement */
           <div className={compact ? "space-y-3" : "space-y-6"}>
             {/* Section Acquisition Log */}
             <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
@@ -323,7 +336,10 @@ export function AlbumDetailView({
                 </div>
               </div>
             </div>
-
+          </div>
+        ) : (
+          /* Onglet STORY - Editorial uniquement */
+          <div className={compact ? "space-y-3" : "space-y-6"}>
             {/* Section Editorial */}
             <div className={`${compact ? 'bg-zinc-900/80 border border-zinc-800/50 p-4' : 'bg-white/5 border border-zinc-800/30 p-10'} rounded-lg`}>
               <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-3' : 'mb-4'} amp-label`}>
