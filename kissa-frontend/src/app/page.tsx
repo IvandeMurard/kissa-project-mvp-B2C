@@ -105,6 +105,7 @@ export default function Home() {
   // --- ÉTATS VUES ET MODE GESTION ---
   const [currentView, setCurrentView] = useState<"SHELF" | "DIG" | "SETUP">("DIG");
   const [isManageMode, setIsManageMode] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Haptic feedback hook
   const haptic = useHaptic();
@@ -579,6 +580,19 @@ export default function Home() {
     const t = setTimeout(() => setSuccessToast(null), 3000);
     return () => clearTimeout(t);
   }, [successToast]);
+
+  // Détection de la taille d'écran pour définir la vue initiale
+  useEffect(() => {
+    setIsMounted(true);
+    // Définir la vue initiale selon la taille d'écran
+    if (typeof window !== "undefined") {
+      if (window.innerWidth > 768) {
+        setCurrentView("SHELF");
+      } else {
+        setCurrentView("DIG");
+      }
+    }
+  }, []);
 
   // Composant BottomNav
   const BottomNav = () => (
@@ -1117,6 +1131,54 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
       {/* VUE DIG - Interface Shazam-like */}
       {currentView === "DIG" && (
         <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] px-6 py-12 relative">
+          {/* Éléments Viewfinder (z-0 - arrière-plan) */}
+          
+          {/* Spotlight (Ambiance lumineuse) */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-900/20 blur-[100px] rounded-full z-0"></div>
+          
+          {/* Crosshairs - Ligne verticale */}
+          <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-0 h-full border-[0.5px] border-zinc-800 z-0"></div>
+          
+          {/* Crosshairs - Ligne horizontale */}
+          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 w-full h-0 border-[0.5px] border-zinc-800 z-0"></div>
+          
+          {/* Marquages techniques - Haut-Gauche */}
+          <div className="absolute top-20 left-6 amp-label text-xs text-zinc-600 z-0">REC • [ 00:00:00 ]</div>
+          
+          {/* Marquages techniques - Haut-Droite */}
+          <div className="absolute top-20 right-6 amp-label text-xs text-zinc-600 z-0">ISO 400</div>
+          
+          {/* Marquages techniques - Bas-Gauche */}
+          <div className="absolute bottom-20 left-6 amp-label text-xs text-zinc-600 z-0">F/2.8</div>
+          
+          {/* Marquages techniques - Bas-Droite */}
+          <div className="absolute bottom-20 right-6 amp-label text-xs text-zinc-600 z-0">AUTO-FOCUS</div>
+          
+          {/* Corners brackets - Zone de scan idéale */}
+          {/* Corner haut-gauche */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-[200px] -translate-y-[200px] w-8 h-8 z-0">
+            <div className="absolute top-0 left-0 w-4 h-[1px] bg-zinc-700"></div>
+            <div className="absolute top-0 left-0 w-[1px] h-4 bg-zinc-700"></div>
+          </div>
+          
+          {/* Corner haut-droite */}
+          <div className="absolute top-1/2 left-1/2 translate-x-[200px] -translate-y-[200px] w-8 h-8 z-0">
+            <div className="absolute top-0 right-0 w-4 h-[1px] bg-zinc-700"></div>
+            <div className="absolute top-0 right-0 w-[1px] h-4 bg-zinc-700"></div>
+          </div>
+          
+          {/* Corner bas-gauche */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-[200px] translate-y-[200px] w-8 h-8 z-0">
+            <div className="absolute bottom-0 left-0 w-4 h-[1px] bg-zinc-700"></div>
+            <div className="absolute bottom-0 left-0 w-[1px] h-4 bg-zinc-700"></div>
+          </div>
+          
+          {/* Corner bas-droite */}
+          <div className="absolute top-1/2 left-1/2 translate-x-[200px] translate-y-[200px] w-8 h-8 z-0">
+            <div className="absolute bottom-0 right-0 w-4 h-[1px] bg-zinc-700"></div>
+            <div className="absolute bottom-0 right-0 w-[1px] h-4 bg-zinc-700"></div>
+          </div>
+
           {/* Logo Kissa en haut à gauche */}
           <h1 className="absolute top-6 left-6 lightbox-sign inline-block rounded-xl px-4 py-2 text-sm z-10">喫茶 Kissa</h1>
 
@@ -1134,10 +1196,10 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
           </button>
 
           {/* Container principal centré */}
-          <div className="flex flex-col items-center justify-center gap-6">
+          <div className="flex flex-col items-center justify-center gap-6 relative z-20">
             {/* Bouton principal vinyle rotatif */}
             <label
-              className={`relative w-48 h-48 md:w-64 md:h-64 rounded-full bg-neutral-950 border-2 border-amber-100/20 cursor-pointer flex items-center justify-center transition-all hover:scale-105 ${
+              className={`relative w-48 h-48 md:w-64 md:h-64 rounded-full bg-neutral-950 border-2 border-amber-100/20 cursor-pointer flex items-center justify-center transition-all hover:scale-105 z-20 ${
                 isLoading 
                   ? "shadow-amber-500/30 animate-pulse" 
                   : "shadow-lg shadow-amber-500/10"
