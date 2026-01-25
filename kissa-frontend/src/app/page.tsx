@@ -693,7 +693,7 @@ export default function Home() {
                 placeholder="Artist, Title, Cat. No..." 
                 value={searchQuery} 
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-full py-1.5 pl-9 pr-4 text-xs text-zinc-100 focus:outline-none focus:border-amber-100/50 transition-all placeholder:text-zinc-500"
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-full py-1.5 pl-9 pr-4 text-xs text-zinc-100 focus:outline-none focus:border-kissa-amber/50 transition-all placeholder:text-zinc-500"
               />
             </div>
             <span className="bg-zinc-800 text-zinc-300 border border-zinc-700 font-mono text-xs px-2 py-1 rounded-sm">{filteredAlbums.length} LP</span>
@@ -709,9 +709,9 @@ export default function Home() {
           {/* FILTRES GENRES */}
           {availableGenres.length > 0 && (
             <div className="px-6 py-4 flex gap-2 overflow-x-auto scrollbar-hide">
-              <button onClick={() => setSelectedGenre(null)} className={`amp-label text-sm font-semibold px-3 py-1 rounded-sm transition-colors ${!selectedGenre ? 'bg-amber-100 text-black border border-amber-100 font-bold shadow-lg shadow-amber-500/20' : 'text-zinc-400 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'}`}>ALL</button>
+              <button onClick={() => setSelectedGenre(null)} className={`amp-label text-sm font-semibold px-3 py-1 rounded-sm transition-colors ${!selectedGenre ? 'bg-kissa-amber text-neutral-900 border border-kissa-amber font-bold shadow-[0_0_15px_rgba(255,179,71,0.4)]' : 'text-zinc-400 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'}`}>ALL</button>
               {availableGenres.map(g => (
-                <button key={g} onClick={() => { sounds.playSwitch(); setSelectedGenre(selectedGenre === g ? null : g); }} className={`amp-label text-sm font-semibold uppercase tracking-wider px-3 py-1 rounded-sm transition-colors ${selectedGenre === g ? 'bg-amber-100 text-black border border-amber-100 font-bold shadow-lg shadow-amber-500/20' : 'text-zinc-400 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'}`}>{g}</button>
+                <button key={g} onClick={() => { sounds.playSwitch(); setSelectedGenre(selectedGenre === g ? null : g); }} className={`amp-label text-sm font-semibold uppercase tracking-wider px-3 py-1 rounded-sm transition-colors ${selectedGenre === g ? 'bg-kissa-amber text-neutral-900 border border-kissa-amber font-bold shadow-[0_0_15px_rgba(255,179,71,0.4)]' : 'text-zinc-400 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'}`}>{g}</button>
               ))}
             </div>
           )}
