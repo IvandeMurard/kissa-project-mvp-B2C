@@ -1117,13 +1117,16 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
       {/* VUE DIG - Interface Shazam-like */}
       {currentView === "DIG" && (
         <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] px-6 py-12 relative">
+          {/* Logo Kissa en haut à gauche */}
+          <h1 className="absolute top-6 left-6 lightbox-sign inline-block rounded-xl px-4 py-2 text-sm z-10">喫茶 Kissa</h1>
+
           {/* Bouton de recherche manuelle - Flottant en haut à droite */}
           <button
             onClick={() => {
               setShowManualSearch(true);
               haptic.light();
             }}
-            className="absolute top-6 right-6 flex items-center gap-2 text-neutral-400 hover:text-white transition-colors amp-label"
+            className="absolute top-6 right-6 flex items-center gap-2 text-neutral-400 hover:text-white transition-colors amp-label z-10"
             title="Recherche manuelle"
           >
             <Search className="w-4 h-4" />
@@ -1134,8 +1137,10 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
           <div className="flex flex-col items-center justify-center gap-6">
             {/* Bouton principal vinyle rotatif */}
             <label
-              className={`relative w-48 h-48 md:w-64 md:h-64 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 border-2 border-white/20 cursor-pointer flex items-center justify-center transition-all hover:scale-105 breathing-glow ${
-                isLoading ? "opacity-75" : ""
+              className={`relative w-48 h-48 md:w-64 md:h-64 rounded-full bg-neutral-950 border-2 border-amber-100/20 cursor-pointer flex items-center justify-center transition-all hover:scale-105 ${
+                isLoading 
+                  ? "shadow-amber-500/30 animate-pulse" 
+                  : "shadow-lg shadow-amber-500/10"
               }`}
             >
               <input
@@ -1147,15 +1152,24 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                 disabled={isLoading}
               />
               
-              {/* Vinyle en rotation */}
-              <div className={`relative w-32 h-32 md:w-40 md:h-40 rounded-full bg-gradient-to-br from-neutral-900 to-black border-4 border-neutral-700 flex items-center justify-center ${
-                isLoading ? "animate-spin" : "animate-[spin_6s_linear_infinite]"
-              }`}>
-                {/* Cercles concentriques du vinyle */}
-                <div className="absolute inset-0 rounded-full border-2 border-neutral-600" style={{ width: "60%", height: "60%", top: "20%", left: "20%" }}></div>
-                <div className="absolute inset-0 rounded-full border border-neutral-700" style={{ width: "30%", height: "30%", top: "35%", left: "35%" }}></div>
-                {/* Centre du vinyle */}
-                <div className="absolute w-4 h-4 md:w-6 md:h-6 rounded-full bg-black border-2 border-neutral-800"></div>
+              {/* Vinyle en rotation avec rainures */}
+              <div className={`relative w-40 h-40 md:w-52 md:h-52 rounded-full bg-neutral-950 flex items-center justify-center ${
+                isLoading ? "animate-spin" : "animate-spin-slow"
+              }`}
+              style={{
+                background: `radial-gradient(circle, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.8) 50%, #0a0a0a 100%)`
+              }}>
+                {/* Rainures concentriques du vinyle */}
+                <div className="absolute inset-0 rounded-full border border-neutral-800/40" style={{ width: "90%", height: "90%", top: "5%", left: "5%" }}></div>
+                <div className="absolute inset-0 rounded-full border border-neutral-800/30" style={{ width: "75%", height: "75%", top: "12.5%", left: "12.5%" }}></div>
+                <div className="absolute inset-0 rounded-full border border-neutral-800/40" style={{ width: "60%", height: "60%", top: "20%", left: "20%" }}></div>
+                <div className="absolute inset-0 rounded-full border border-neutral-800/30" style={{ width: "45%", height: "45%", top: "27.5%", left: "27.5%" }}></div>
+                <div className="absolute inset-0 rounded-full border border-neutral-800/40" style={{ width: "30%", height: "30%", top: "35%", left: "35%" }}></div>
+                
+                {/* Macaron central coloré avec icône */}
+                <div className="absolute w-12 h-12 md:w-16 md:h-16 rounded-full bg-red-800 flex items-center justify-center shadow-inner border-2 border-red-900/50 z-10">
+                  <Scan className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                </div>
               </div>
             </label>
 
@@ -1164,9 +1178,12 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
               {isLoading ? (
                 <p className="amp-label text-white text-sm md:text-base">ANALYZING SLEEVE...</p>
               ) : (
-                <p className="amp-label text-neutral-400 text-sm md:text-base" style={{ fontFamily: "var(--font-technical)" }}>
-                  TAP TO DIG
-                </p>
+                <>
+                  <p className="amp-label text-neutral-400 text-sm md:text-base tracking-widest" style={{ fontFamily: "var(--font-technical)" }}>
+                    TAP TO DIG
+                  </p>
+                  <p className="text-neutral-500 text-xs mt-2">Place cover in frame</p>
+                </>
               )}
             </div>
           </div>
