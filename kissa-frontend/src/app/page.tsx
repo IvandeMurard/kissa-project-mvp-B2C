@@ -96,7 +96,7 @@ export default function Home() {
 
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
 
-
+  const [successToast, setSuccessToast] = useState<string | null>(null);
 
   // Déclaration de fetchLibrary avec useCallback AVANT le useEffect
   const fetchLibrary = useCallback(async () => {
@@ -309,15 +309,14 @@ export default function Home() {
 
       if (response.ok) { 
         const result = await response.json();
-        console.log(`✅ Album identifié : ${result.display?.title || 'Album'} - ${result.display?.artist || 'Artiste'}`);
-        
-        // Attendre un court délai pour s'assurer que la base de données est à jour
+        const title = result.display?.title || "Album";
+        const artist = result.display?.artist || "Artiste";
+
         await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Rafraîchir la bibliothèque
         await fetchLibrary(); 
-        
-        // Réinitialiser l'input
+
+        setSuccessToast(`Album identifié : ${title} - ${artist}`);
+
         e.target.value = ""; 
       } else { 
         // Gestion d'erreur détaillée
@@ -466,9 +465,7 @@ export default function Home() {
         // Rafraîchir la bibliothèque
         await fetchLibrary();
 
-        // Feedback visuel : notification de succès
-        console.log(`✅ Album ajouté : ${candidate.title} - ${candidate.artist}`);
-        
+        setSuccessToast("Album ajouté");
         closeManualSearch();
 
       } else {
@@ -552,7 +549,11 @@ export default function Home() {
     setFilteredAlbums(filtered);
   }, [allAlbums, searchQuery, selectedGenre, sortOption]);
 
-
+  useEffect(() => {
+    if (!successToast) return;
+    const t = setTimeout(() => setSuccessToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [successToast]);
 
   return (
 
@@ -564,7 +565,7 @@ export default function Home() {
 
         <div className="flex items-center gap-4">
 
-          <h1 className="text-xl tracking-[0.3em] font-light text-white uppercase">喫茶 Kissa</h1>
+          <h1 className="lightbox-sign inline-block rounded-xl px-4 py-2 text-sm">喫茶 Kissa</h1>
 
           <span className="text-[10px] text-neutral-600 border border-neutral-800 px-2 py-0.5 rounded-full">{filteredAlbums.length} LP</span>
 
@@ -1111,6 +1112,18 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
 
         </div>
 
+      )}
+
+      {successToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-[scaleIn_0.2s_ease-out]"
+        >
+          <div className="lightbox-sign rounded-lg px-4 py-2 text-sm">
+            {successToast}
+          </div>
+        </div>
       )}
 
     </main>

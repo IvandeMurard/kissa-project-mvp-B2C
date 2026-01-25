@@ -10,3 +10,28 @@
     opacity: 1;
   }
 }
+
+@keyframes flicker {
+  from,
+  to {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.98;
+  }
+}
+
+.lightbox-sign {
+  background-color: #fdfbf7;
+  color: #111;
+  text-transform: uppercase;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.5),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.04);
+  filter: drop-shadow(0 0 12px rgba(253, 251, 247, 0.5))
+    drop-shadow(0 0 24px rgba(253, 251, 247, 0.25));
+  animation: flicker 3s ease-in-out infinite;
+}
