@@ -177,7 +177,18 @@ export function AlbumDetailView({
   return (
     <div className={`flex flex-col flex-1 h-full ${padding} relative ${compact ? 'overflow-y-auto' : 'overflow-y-auto'}`}>
       {/* Header */}
-      <div className={`mb-4 ${compact ? 'mb-2' : ''} ${showActions && !compact ? 'pr-8' : ''}`}>
+      <div className={`mb-4 ${compact ? 'mb-2' : ''} ${showActions && !compact ? 'pr-8' : ''} ${
+        activeTab === "story" ? "md:mb-4" : ""
+      }`}>
+        {activeTab === "story" && (
+          <div className="flex items-center gap-3 mb-2 md:hidden transition-opacity duration-300">
+            <img 
+              src={localAlbum.display.cover_image || "/placeholder.png"} 
+              alt={localAlbum.display.title}
+              className="w-10 h-10 rounded object-cover"
+            />
+          </div>
+        )}
         <h3 className={`${headerSize} font-bold text-white leading-tight mb-1`}>
           {localAlbum.display.title}
         </h3>
@@ -262,7 +273,7 @@ export function AlbumDetailView({
           </div>
         ) : activeTab === "sleeve" ? (
           /* Onglet SLEEVE NOTES - Acquisition Log uniquement */
-          <div className={compact ? "space-y-3" : "space-y-6"}>
+          <div className={`${compact ? "space-y-3" : "space-y-6"} transition-opacity duration-300`}>
             {/* Section Acquisition Log */}
             <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
               <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
@@ -339,16 +350,24 @@ export function AlbumDetailView({
           </div>
         ) : (
           /* Onglet STORY - Editorial uniquement */
-          <div className={compact ? "space-y-3" : "space-y-6"}>
+          <div className={`${compact ? 'space-y-3' : activeTab === "story" ? 'flex-1 flex flex-col' : 'space-y-6'}`}>
             {/* Section Editorial */}
-            <div className={`${compact ? 'bg-zinc-900/80 border border-zinc-800/50 p-4' : 'bg-white/5 border border-zinc-800/30 p-10'} rounded-lg`}>
-              <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-3' : 'mb-4'} amp-label`}>
+            <div className={`${compact ? 'bg-zinc-900/80 border border-zinc-800/50 p-4' : activeTab === "story" ? 'bg-white/5 border border-zinc-800/30 p-6 md:p-10 flex-1 flex flex-col' : 'bg-white/5 border border-zinc-800/30 p-10'} rounded-lg transition-opacity duration-300`}>
+              <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-3' : 'mb-4'} amp-label ${
+                activeTab === "story" ? "hidden md:block" : ""
+              }`}>
                 Editorial
               </h4>
               {localAlbum.editorial_notes ? (
-                <div>
+                <div className="flex-1 flex flex-col">
                   <div 
-                    className={`${compact ? 'text-sm leading-relaxed' : 'text-xl leading-loose'} text-zinc-300 text-justify space-y-3`}
+                    className={`${
+                      compact 
+                        ? 'text-sm leading-relaxed' 
+                        : activeTab === "story" 
+                          ? 'text-lg md:text-xl leading-relaxed md:leading-loose px-0 md:px-0' 
+                          : 'text-xl leading-loose'
+                    } text-zinc-300 text-justify space-y-3 flex-1`}
                     style={{ fontFamily: "var(--font-serif)" }}
                   >
                     {renderMarkdown(localAlbum.editorial_notes)}
@@ -394,7 +413,9 @@ export function AlbumDetailView({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => sounds?.playVinylStart()}
-              className="bg-[#1DB954] hover:bg-[#1ed760] text-white py-3 px-4 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+              className={`bg-[#1DB954] hover:bg-[#1ed760] text-white py-3 px-4 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 ${
+                activeTab === "story" ? "hidden md:flex" : ""
+              }`}
             >
               <ExternalLink className="w-4 h-4" />
               Listen on Spotify

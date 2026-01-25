@@ -1038,12 +1038,14 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
           >
             {/* Section Image */}
             <div className={`h-[250px] md:h-full bg-[#000] overflow-hidden shrink-0 transition-all duration-300 ${
+              modalActiveTab === "story" ? "hidden md:block" : ""
+            } ${
               modalActiveTab === "sleeve" ? "md:w-2/5" : "md:w-1/2"
             }`}>
               <img 
                 src={selectedAlbum.display.cover_image || "/placeholder.png"} 
                 alt={selectedAlbum.display.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-opacity duration-300"
               />
             </div>
 
