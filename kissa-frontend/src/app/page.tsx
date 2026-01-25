@@ -105,6 +105,9 @@ export default function Home() {
   // Haptic feedback hook
   const haptic = useHaptic();
 
+  // Sound design hook
+  const sounds = useKissaSound();
+
   // Déclaration de fetchLibrary avec useCallback AVANT le useEffect
   const fetchLibrary = useCallback(async () => {
 
