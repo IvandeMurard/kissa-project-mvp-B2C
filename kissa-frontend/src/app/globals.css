@@ -78,6 +78,17 @@ body::after {
   color: rgb(161 161 170); /* zinc-400 */
 }
 
+/* Hi-Fi Retro-illuminated Button Active State */
+.amp-button-active {
+  background-color: rgba(255, 179, 71, 0.1);
+  border: 1px solid #FFB347;
+  color: #FFB347;
+  box-shadow: 
+    inset 0 0 10px rgba(255, 179, 71, 0.2),
+    0 0 15px rgba(255, 179, 71, 0.4);
+  transition: all 300ms ease-in-out;
+}
+
 /* Breathing glow animation for vinyl button */
 @keyframes breathing-glow {
   0%, 100% {
