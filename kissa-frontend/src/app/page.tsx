@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 
-import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock } from "lucide-react";
+import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock, Sparkles } from "lucide-react";
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -21,6 +21,10 @@ interface Album {
   links: { spotify_url: string; discogs_url: string; spotify_id?: string };
 
   details: { year: string; label: string; genre: string[]; tracklist?: string[] };
+
+  purchase_data?: { date?: string; location?: string; price?: number; condition?: string } | null;
+
+  editorial_notes?: string | null;
 
 }
 
@@ -102,6 +106,12 @@ export default function Home() {
 
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
+  const [activeTab, setActiveTab] = useState<"tracklist" | "sleeve">("tracklist");
+
+  const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
+
+  const [isSavingPurchaseData, setIsSavingPurchaseData] = useState(false);
+
   // --- ÉTATS VUES ET MODE GESTION ---
   const [currentView, setCurrentView] = useState<"SHELF" | "DIG" | "SETUP">("DIG");
   const [isManageMode, setIsManageMode] = useState(false);
@@ -170,6 +180,10 @@ export default function Home() {
         },
 
         details: { year: item.year, label: item.label, genre: item.genre || [], tracklist: item.tracklist || [] },
+
+        purchase_data: item.purchase_data || null,
+
+        editorial_notes: item.editorial_notes || null,
 
       }));
 
@@ -302,6 +316,102 @@ export default function Home() {
       alert(`❌ Erreur lors de la suppression : ${errorMessage}`);
     }
 
+  };
+
+  // Fonction pour générer les notes éditoriales
+  const handleGenerateNotes = async (albumId: string) => {
+    setIsGeneratingNotes(true);
+    haptic.light();
+
+    try {
+      const response = await fetch(`${API_URL}/albums/${albumId}/generate-notes`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Erreur ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      // Mettre à jour l'album sélectionné
+      setSelectedAlbum((prev) => 
+        prev ? { ...prev, editorial_notes: result.editorial_notes } : null
+      );
+
+      // Rafraîchir la bibliothèque
+      await fetchLibrary();
+      
+      haptic.medium();
+    } catch (error) {
+      console.error("❌ Erreur lors de la génération de notes:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+      setSuccessToast(`Erreur: ${errorMessage}`);
+      setTimeout(() => setSuccessToast(null), 3000);
+    } finally {
+      setIsGeneratingNotes(false);
+    }
+  };
+
+  // Fonction pour mettre à jour les données d'achat
+  const handleUpdatePurchaseData = async (
+    albumId: string,
+    data: { date?: string; location?: string; price?: number; condition?: string }
+  ) => {
+    setIsSavingPurchaseData(true);
+
+    try {
+      const response = await fetch(`${API_URL}/albums/${albumId}/context`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Erreur ${response.status}`);
+      }
+
+      const updatedAlbum = await response.json();
+      
+      // Mettre à jour l'album sélectionné
+      setSelectedAlbum((prev) => 
+        prev ? { ...prev, purchase_data: updatedAlbum.purchase_data } : null
+      );
+
+      // Rafraîchir la bibliothèque
+      await fetchLibrary();
+      
+    } catch (error) {
+      console.error("❌ Erreur lors de la mise à jour:", error);
+      // Erreur silencieuse - pas d'alerte intrusive
+    } finally {
+      setIsSavingPurchaseData(false);
+    }
+  };
+
+  // Fonction simple pour rendre le markdown
+  const renderMarkdown = (text: string) => {
+    // Remplacer **texte** par <strong> (en premier pour éviter les conflits)
+    let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Remplacer *texte* par <em> (mais seulement si ce n'est pas déjà dans un strong)
+    html = html.replace(/\*([^*]+)\*/g, (match, content) => {
+      // Vérifier si le contenu est déjà dans un strong
+      if (match.includes('<strong>') || match.includes('</strong>')) {
+        return match;
+      }
+      return `<em>${content}</em>`;
+    });
+    // Diviser en paragraphes (double saut de ligne)
+    const paragraphs = html.split(/\n\n+/);
+    return paragraphs
+      .filter(para => para.trim())
+      .map((para, i) => (
+        <p key={i} dangerouslySetInnerHTML={{ __html: para.trim().replace(/\n/g, '<br />') }} />
+      ));
   };
 
 
@@ -1042,7 +1152,10 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
       {selectedAlbum && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-black/60 p-4 animate-in fade-in duration-300"
-          onClick={() => setSelectedAlbum(null)}
+          onClick={() => {
+            setSelectedAlbum(null);
+            setActiveTab("tracklist");
+          }}
         >
           <div 
             key={selectedAlbum.id}
@@ -1063,7 +1176,10 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
             <div className="flex flex-col flex-1 p-6 relative overflow-y-auto">
               {/* Bouton Fermer */}
               <button 
-                onClick={() => setSelectedAlbum(null)}
+                onClick={() => {
+                  setSelectedAlbum(null);
+                  setActiveTab("tracklist");
+                }}
                 className="absolute top-4 right-4 z-10 text-neutral-400 hover:text-white transition-colors"
                 aria-label="Fermer"
               >
@@ -1081,7 +1197,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
               </div>
 
               {/* Tags */}
-              <div className="flex flex-wrap gap-2 mb-6">
+              <div className="flex flex-wrap gap-2 mb-4">
                 {selectedAlbum.details.year && (
                   <span className="amp-label bg-zinc-800 text-zinc-300 px-2 py-1 rounded">
                     {selectedAlbum.details.year}
@@ -1096,8 +1212,162 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                 )}
               </div>
 
+              {/* Onglets */}
+              <div className="flex gap-6 mb-6 border-b border-white/10">
+                <button
+                  onClick={() => setActiveTab("tracklist")}
+                  className={`pb-2 px-1 text-sm font-medium transition-colors ${
+                    activeTab === "tracklist"
+                      ? "text-white border-b-2 border-white"
+                      : "text-zinc-400 hover:text-zinc-300"
+                  }`}
+                >
+                  TRACKLIST
+                </button>
+                <button
+                  onClick={() => setActiveTab("sleeve")}
+                  className={`pb-2 px-1 text-sm font-medium transition-colors ${
+                    activeTab === "sleeve"
+                      ? "text-white border-b-2 border-white"
+                      : "text-zinc-400 hover:text-zinc-300"
+                  }`}
+                >
+                  SLEEVE NOTES
+                </button>
+              </div>
+
+              {/* Contenu des onglets */}
+              <div className="flex-1 overflow-y-auto">
+                {activeTab === "tracklist" ? (
+                  /* Onglet TRACKLIST */
+                  <div className="space-y-2">
+                    {selectedAlbum.details.tracklist && selectedAlbum.details.tracklist.length > 0 ? (
+                      selectedAlbum.details.tracklist.map((track, i) => (
+                        <div key={i} className="text-zinc-300 text-sm py-1">
+                          {i + 1}. {track}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-zinc-500 text-sm">Aucune piste disponible</p>
+                    )}
+                  </div>
+                ) : (
+                  /* Onglet SLEEVE NOTES */
+                  <div className="space-y-6">
+                    {/* Section Acquisition Log */}
+                    <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-4">
+                      <h4 className="text-xs uppercase tracking-wider text-zinc-400 mb-3 amp-label">
+                        Acquisition Log
+                      </h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs text-zinc-500 mb-1 block">Lieu</label>
+                          <input
+                            type="text"
+                            placeholder="Acquired at..."
+                            value={selectedAlbum.purchase_data?.location || ""}
+                            onBlur={(e) => {
+                              if (e.target.value !== selectedAlbum.purchase_data?.location) {
+                                handleUpdatePurchaseData(selectedAlbum.id, {
+                                  location: e.target.value || undefined,
+                                });
+                              }
+                            }}
+                            className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-zinc-500 mb-1 block">Date</label>
+                          <input
+                            type="text"
+                            placeholder="Date"
+                            value={selectedAlbum.purchase_data?.date || ""}
+                            onBlur={(e) => {
+                              if (e.target.value !== selectedAlbum.purchase_data?.date) {
+                                handleUpdatePurchaseData(selectedAlbum.id, {
+                                  date: e.target.value || undefined,
+                                });
+                              }
+                            }}
+                            className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-zinc-500 mb-1 block">Prix</label>
+                          <input
+                            type="number"
+                            placeholder="Price paid"
+                            value={selectedAlbum.purchase_data?.price || ""}
+                            onBlur={(e) => {
+                              const price = e.target.value ? parseFloat(e.target.value) : undefined;
+                              if (price !== selectedAlbum.purchase_data?.price) {
+                                handleUpdatePurchaseData(selectedAlbum.id, {
+                                  price: price,
+                                });
+                              }
+                            }}
+                            className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-zinc-500 mb-1 block">Condition</label>
+                          <input
+                            type="text"
+                            placeholder="Condition"
+                            value={selectedAlbum.purchase_data?.condition || ""}
+                            onBlur={(e) => {
+                              if (e.target.value !== selectedAlbum.purchase_data?.condition) {
+                                handleUpdatePurchaseData(selectedAlbum.id, {
+                                  condition: e.target.value || undefined,
+                                });
+                              }
+                            }}
+                            className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section Editorial */}
+                    <div className="bg-zinc-900/80 border border-zinc-800/50 rounded-lg p-6">
+                      <h4 className="text-xs uppercase tracking-wider text-zinc-400 mb-4 amp-label">
+                        Editorial
+                      </h4>
+                      {selectedAlbum.editorial_notes ? (
+                        <div 
+                          className="text-lg leading-relaxed text-zinc-200 space-y-3"
+                          style={{ fontFamily: "var(--font-serif)" }}
+                        >
+                          {renderMarkdown(selectedAlbum.editorial_notes)}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-8">
+                          <button
+                            onClick={() => handleGenerateNotes(selectedAlbum.id)}
+                            disabled={isGeneratingNotes}
+                            className="border border-zinc-600 hover:border-zinc-400 text-zinc-300 hover:text-white py-3 px-6 rounded-sm text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isGeneratingNotes ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Digging into archives...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-4 h-4" />
+                                GENERATE NOTES
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Actions */}
-              <div className="mt-auto flex flex-col gap-3">
+              <div className="mt-6 flex flex-col gap-3">
                 {selectedAlbum.links.spotify_url && (
                   <a
                     href={selectedAlbum.links.spotify_url}
