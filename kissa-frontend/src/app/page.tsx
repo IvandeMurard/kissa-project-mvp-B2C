@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 
-import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit } from "lucide-react";
+import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock } from "lucide-react";
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -101,6 +101,10 @@ export default function Home() {
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
 
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // --- ÉTATS VUES ET MODE GESTION ---
+  const [currentView, setCurrentView] = useState<"SHELF" | "DIG" | "SETUP">("DIG");
+  const [isManageMode, setIsManageMode] = useState(false);
 
   // Haptic feedback hook
   const haptic = useHaptic();
@@ -576,76 +580,294 @@ export default function Home() {
     return () => clearTimeout(t);
   }, [successToast]);
 
+  // Composant BottomNav
+  const BottomNav = () => (
+    <nav className="fixed bottom-0 left-0 right-0 w-full bg-black/80 backdrop-blur-md border-t border-zinc-800 z-50">
+      <div className="flex items-center justify-around h-16 px-4">
+        <button
+          onClick={() => {
+            setCurrentView("SHELF");
+            haptic.light();
+          }}
+          className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors ${
+            currentView === "SHELF" ? "text-white" : "text-neutral-500"
+          }`}
+        >
+          <Library className={`w-5 h-5 ${currentView === "SHELF" ? "text-white" : "text-neutral-500"}`} />
+          <span className="text-[10px] uppercase tracking-wider amp-label">SHELF</span>
+        </button>
+        <button
+          onClick={() => {
+            setCurrentView("DIG");
+            haptic.light();
+          }}
+          className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors ${
+            currentView === "DIG" ? "text-white" : "text-neutral-500"
+          }`}
+        >
+          <Scan className={`w-5 h-5 ${currentView === "DIG" ? "text-white" : "text-neutral-500"}`} />
+          <span className="text-[10px] uppercase tracking-wider amp-label">DIG</span>
+        </button>
+        <button
+          onClick={() => {
+            setCurrentView("SETUP");
+            haptic.light();
+          }}
+          className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors ${
+            currentView === "SETUP" ? "text-white" : "text-neutral-500"
+          }`}
+        >
+          <Settings className={`w-5 h-5 ${currentView === "SETUP" ? "text-white" : "text-neutral-500"}`} />
+          <span className="text-[10px] uppercase tracking-wider amp-label">SETUP</span>
+        </button>
+      </div>
+    </nav>
+  );
+
   return (
 
-    <main className="min-h-screen bg-[#080808] text-neutral-200 font-sans pb-32">
+    <main className="min-h-screen bg-[#080808] text-neutral-200 font-sans pb-24">
 
-      {/* HEADER */}
-
-      <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-md border-b border-white/5 px-6 py-4 flex flex-col md:flex-row justify-between gap-4">
-
-        <div className="flex items-center gap-4">
-
-          <h1 className="lightbox-sign inline-block rounded-xl px-4 py-2 text-sm">喫茶 Kissa</h1>
-
-          <span className="text-[10px] text-neutral-600 border border-neutral-800 px-2 py-0.5 rounded-full">{filteredAlbums.length} LP</span>
-
-        </div>
-
-        <div className="flex items-center gap-3">
-
-          <div className="relative group w-full md:w-64">
-
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-500 group-focus-within:text-white" />
-
-            <input type="text" placeholder="Artist, Title, Cat. No..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-
-              className="w-full bg-[#111] border border-[#222] rounded-full py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-white/20 transition-all placeholder:text-neutral-700"/>
-
-          </div>
-
-          <div className="flex items-center gap-2">
-
-            <SoundToggle />
-
-            <button onClick={() => setShowManualSearch(true)} className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all" title="Ajout manuel">
-
-              <Keyboard className="w-3.5 h-3.5" />
-
+      {/* HEADER - Affiché uniquement pour SHELF */}
+      {currentView === "SHELF" && (
+        <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-md border-b border-white/5 px-6 py-4 flex flex-col md:flex-row justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <h1 className="lightbox-sign inline-block rounded-xl px-4 py-2 text-sm">喫茶 Kissa</h1>
+            <span className="text-[10px] text-neutral-600 border border-neutral-800 px-2 py-0.5 rounded-full">{filteredAlbums.length} LP</span>
+            {/* Toggle Mode Gestion */}
+            <button
+              onClick={() => {
+                setIsManageMode(!isManageMode);
+                haptic.light();
+                sounds.playSwitch();
+              }}
+              className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all"
+              title={isManageMode ? "Verrouiller" : "Déverrouiller"}
+            >
+              {isManageMode ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
             </button>
-
-            <label className={`cursor-pointer flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all ${isLoading ? 'animate-pulse' : ''}`} title="Scanner une photo">
-
-              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileUpload} disabled={isLoading} />
-
-              {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
-
-            </label>
-
           </div>
 
-        </div>
+          <div className="flex items-center gap-3">
+            <div className="relative group w-full md:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-500 group-focus-within:text-white" />
+              <input 
+                type="text" 
+                placeholder="Artist, Title, Cat. No..." 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#111] border border-[#222] rounded-full py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-white/20 transition-all placeholder:text-neutral-700"
+              />
+            </div>
+          </div>
+        </header>
+      )}
 
-      </header>
 
 
+      {/* VUE SHELF */}
+      {currentView === "SHELF" && (
+        <>
+          {/* FILTRES GENRES */}
+          {availableGenres.length > 0 && (
+            <div className="px-6 py-4 flex gap-2 overflow-x-auto scrollbar-hide">
+              <button onClick={() => setSelectedGenre(null)} className={`amp-label px-3 py-1 rounded-sm transition-colors ${!selectedGenre ? 'bg-white text-black' : 'text-neutral-500 hover:text-white'}`}>ALL</button>
+              {availableGenres.map(g => (
+                <button key={g} onClick={() => { sounds.playSwitch(); setSelectedGenre(selectedGenre === g ? null : g); }} className={`text-[10px] uppercase tracking-wider px-3 py-1 rounded-sm transition-colors ${selectedGenre === g ? 'bg-white text-black' : 'text-neutral-500 hover:text-white'}`}>{g}</button>
+              ))}
+            </div>
+          )}
 
-      {/* FILTRES GENRES */}
+          {/* BARRE D'OUTILS */}
+          <div className="px-6 py-4 border-b border-white/5">
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+              {/* Recherche */}
+              <div className="relative group w-full md:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 group-focus-within:text-white" />
+                <input
+                  type="text"
+                  placeholder="Artist, Title, Cat. No..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-[#111] border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-white/20 transition-all placeholder:text-neutral-700 text-white"
+                />
+              </div>
 
-      {availableGenres.length > 0 && (
+              {/* Tri */}
+              <div className="flex items-center gap-2">
+                <label className="amp-label text-neutral-500">SORT:</label>
+                <select
+                  value={sortOption}
+                  onChange={(e) => setSortOption(e.target.value as "recent" | "artist" | "year")}
+                  className="bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20 transition-all cursor-pointer"
+                >
+                  <option value="recent">Ajouté récemment</option>
+                  <option value="artist">Artiste (A-Z)</option>
+                  <option value="year">Année</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-        <div className="px-6 py-4 flex gap-2 overflow-x-auto scrollbar-hide">
+          {/* GRILLE D'ALBUMS */}
+          <div className="px-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-4">
+            {isLoadingLibrary ? (
+              // Skeletons pendant le chargement
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="aspect-square bg-[#111] border border-white/5 animate-pulse">
+                  <div className="w-full h-full bg-neutral-800/50"></div>
+                </div>
+              ))
+            ) : !supabase ? (
+              // Message d'erreur si Supabase n'est pas configuré
+              <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-6 max-w-md">
+                  <h3 className="text-white font-bold text-lg mb-2">Configuration manquante</h3>
+                  <p className="text-red-300 text-sm mb-4">
+                    Les variables d'environnement Supabase ne sont pas configurées.
+                  </p>
+                  <div className="text-neutral-400 text-xs space-y-3 text-left">
+                    <div>
+                      <p className="font-semibold mb-2">Pour le développement local :</p>
+                      <ol className="list-decimal list-inside space-y-1 ml-2">
+                        <li>Créez un fichier <code className="bg-black/50 px-1 rounded">.env.local</code> dans le dossier <code className="bg-black/50 px-1 rounded">kissa-frontend</code></li>
+                        <li>Ajoutez les variables :</li>
+                      </ol>
+                      <pre className="bg-black/50 p-2 rounded mt-2 text-[10px] overflow-x-auto">
+{`NEXT_PUBLIC_SUPABASE_URL=votre_url
+NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
+                      </pre>
+                    </div>
+                    <div>
+                      <p className="font-semibold mb-2">Pour Vercel (production) :</p>
+                      <ol className="list-decimal list-inside space-y-1 ml-2">
+                        <li>Allez dans votre projet Vercel → Settings → Environment Variables</li>
+                        <li>Ajoutez <code className="bg-black/50 px-1 rounded">NEXT_PUBLIC_SUPABASE_URL</code> et <code className="bg-black/50 px-1 rounded">NEXT_PUBLIC_SUPABASE_KEY</code></li>
+                        <li>Redéployez l'application</li>
+                      </ol>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-red-500/30">
+                      <p className="text-red-300 text-[10px]">
+                        Obtenez vos clés Supabase :{" "}
+                        <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline hover:text-red-200">
+                          Dashboard Supabase → Settings → API
+                        </a>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : filteredAlbums.length === 0 && allAlbums.length === 0 ? (
+              // Message si aucune donnée n'est chargée
+              <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                <div className="bg-neutral-900/50 border border-white/10 rounded-lg p-6 max-w-md">
+                  <h3 className="amp-label text-white text-lg mb-2 font-semibold">YOUR SHELF IS EMPTY</h3>
+                  <p className="text-neutral-400 text-sm mb-4">
+                    Start digging.
+                  </p>
+                  <p className="text-neutral-500 text-xs">
+                    Use the camera to scan or dig manually.
+                  </p>
+                </div>
+              </div>
+            ) : filteredAlbums.length === 0 ? (
+              // Message si les filtres ne donnent aucun résultat
+              <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                <div className="bg-neutral-900/50 border border-white/10 rounded-lg p-6 max-w-md">
+                  <h3 className="amp-label text-white text-lg mb-2 font-semibold">NO MATCH</h3>
+                  <p className="text-neutral-400 text-sm">
+                    Try another query.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              filteredAlbums.map((album) => (
+                <div key={album.id} className="group relative aspect-square bg-[#111] overflow-hidden cursor-default border border-white/5">
+                  <img 
+                    src={album.display.cover_image || "/placeholder.png"} 
+                    alt={album.display.title}
+                    onClick={(e) => {
+                      haptic.light();
+                      // Sur mobile uniquement : ouvrir la modale
+                      if (window.innerWidth < 768) {
+                        setSelectedAlbum(album);
+                      }
+                    }}
+                    className={`w-full h-full object-cover transition-transform duration-500 ease-out md:relative md:z-10 md:group-hover:-translate-x-full group-hover:scale-110 md:group-hover:scale-100 cursor-pointer md:cursor-default ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
+                  />
 
-          <button onClick={() => setSelectedGenre(null)} className={`amp-label px-3 py-1 rounded-sm transition-colors ${!selectedGenre ? 'bg-white text-black' : 'text-neutral-500 hover:text-white'}`}>ALL</button>
+                  <div className="absolute inset-0 bg-black/90 backdrop-blur-sm translate-y-full group-hover:translate-y-0 md:translate-y-0 md:z-0 transition-opacity duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] p-5 flex flex-col md:opacity-0 md:group-hover:opacity-100">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="amp-label">{album.details.year} • {album.details.label}</span>
+                      {/* Boutons d'action - affichés uniquement si isManageMode est true */}
+                      {isManageMode && (
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedAlbum(album);
+                            }} 
+                            className="text-neutral-700 hover:text-blue-400 transition-colors"
+                            title="Éditer"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </button>
+                          <button onClick={(e) => handleDelete(album.id, e)} className="text-neutral-700 hover:text-red-500 transition-colors" title="DISCARD">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
-          {availableGenres.map(g => (
+                    <div className="mb-4">
+                      <h3 className="text-white font-bold text-sm leading-tight mb-1">{album.display.title}</h3>
+                      <p className="text-neutral-400 text-xs">{album.display.artist}</p>
+                    </div>
 
-            <button key={g} onClick={() => { sounds.playSwitch(); setSelectedGenre(selectedGenre === g ? null : g); }} className={`text-[10px] uppercase tracking-wider px-3 py-1 rounded-sm transition-colors ${selectedGenre === g ? 'bg-white text-black' : 'text-neutral-500 hover:text-white'}`}>{g}</button>
+                    {album.details.genre && album.details.genre.length > 0 && (
+                      <div className="mb-3">
+                        <h4 className="amp-label mb-2">GENRE{album.details.genre.length > 1 ? 'S' : ''}</h4>
+                        <div className="flex flex-wrap gap-1.5">
+                          {album.details.genre.map((g, i) => (
+                            <span key={i} className="amp-label inline-block bg-zinc-800 text-zinc-300 border border-zinc-700 rounded px-2 py-1">
+                              {g}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-          ))}
+                    {album.details.tracklist && album.details.tracklist.length > 0 && (
+                      <div className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-700 pr-2 mb-3">
+                        <h4 className="amp-label mb-2">Tracklist</h4>
+                        <ul className="space-y-1">
+                          {album.details.tracklist.map((track, i) => (
+                            <li key={i} className="text-[10px] text-neutral-300 leading-relaxed">
+                              <span className="text-neutral-500 mr-2">{String(i + 1).padStart(2, '0')}.</span>
+                              {track}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-        </div>
+                    {album.links.spotify_id && (
+                      <button onClick={() => handlePlay(album)} className="amp-label mt-3 w-full bg-white text-black py-2 rounded-sm font-semibold hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2">
+                        <Play className="w-3 h-3 fill-current" /> PLAY
+                      </button>
+                    )}
+                  </div>
 
+                  {currentTrack?.id === album.id && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-12 h-12 rounded-full border-2 border-white/20 animate-[spin_3s_linear_infinite] flex items-center justify-center"><div className="w-3 h-3 bg-red-500 rounded-full" /></div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </>
       )}
 
 
@@ -874,13 +1096,16 @@ export default function Home() {
                     Listen on Spotify
                   </a>
                 )}
-                <button 
-                  onClick={handleDeleteFromModal}
-                  className="amp-label bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-sm font-semibold transition-colors flex items-center justify-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  DISCARD
-                </button>
+                {/* Bouton de suppression - affiché uniquement si isManageMode est true */}
+                {isManageMode && (
+                  <button 
+                    onClick={handleDeleteFromModal}
+                    className="amp-label bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-sm font-semibold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    DISCARD
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -889,229 +1114,96 @@ export default function Home() {
 
 
 
-      {/* BARRE D'OUTILS */}
-      <div className="px-6 py-4 border-b border-white/5">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          {/* Recherche */}
-          <div className="relative group w-full md:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 group-focus-within:text-white" />
-            <input
-              type="text"
-              placeholder="Artist, Title, Cat. No..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#111] border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-white/20 transition-all placeholder:text-neutral-700 text-white"
-            />
-          </div>
+      {/* VUE DIG - Interface Shazam-like */}
+      {currentView === "DIG" && (
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] px-6 py-12 relative">
+          {/* Bouton de recherche manuelle - Flottant en haut à droite */}
+          <button
+            onClick={() => {
+              setShowManualSearch(true);
+              haptic.light();
+            }}
+            className="absolute top-6 right-6 flex items-center gap-2 text-neutral-400 hover:text-white transition-colors amp-label"
+            title="Recherche manuelle"
+          >
+            <Search className="w-4 h-4" />
+            <span className="text-xs">Search Manually</span>
+          </button>
 
-          {/* Tri */}
-          <div className="flex items-center gap-2">
-            <label className="amp-label text-neutral-500">SORT:</label>
-            <select
-              value={sortOption}
-              onChange={(e) => setSortOption(e.target.value as "recent" | "artist" | "year")}
-              className="bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20 transition-all cursor-pointer"
+          {/* Container principal centré */}
+          <div className="flex flex-col items-center justify-center gap-6">
+            {/* Bouton principal vinyle rotatif */}
+            <label
+              className={`relative w-48 h-48 md:w-64 md:h-64 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 border-2 border-white/20 cursor-pointer flex items-center justify-center transition-all hover:scale-105 breathing-glow ${
+                isLoading ? "opacity-75" : ""
+              }`}
             >
-              <option value="recent">Ajouté récemment</option>
-              <option value="artist">Artiste (A-Z)</option>
-              <option value="year">Année</option>
-            </select>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleFileUpload}
+                disabled={isLoading}
+              />
+              
+              {/* Vinyle en rotation */}
+              <div className={`relative w-32 h-32 md:w-40 md:h-40 rounded-full bg-gradient-to-br from-neutral-900 to-black border-4 border-neutral-700 flex items-center justify-center ${
+                isLoading ? "animate-spin" : "animate-[spin_6s_linear_infinite]"
+              }`}>
+                {/* Cercles concentriques du vinyle */}
+                <div className="absolute inset-0 rounded-full border-2 border-neutral-600" style={{ width: "60%", height: "60%", top: "20%", left: "20%" }}></div>
+                <div className="absolute inset-0 rounded-full border border-neutral-700" style={{ width: "30%", height: "30%", top: "35%", left: "35%" }}></div>
+                {/* Centre du vinyle */}
+                <div className="absolute w-4 h-4 md:w-6 md:h-6 rounded-full bg-black border-2 border-neutral-800"></div>
+              </div>
+            </label>
+
+            {/* Texte de feedback */}
+            <div className="text-center">
+              {isLoading ? (
+                <p className="amp-label text-white text-sm md:text-base">ANALYZING SLEEVE...</p>
+              ) : (
+                <p className="amp-label text-neutral-400 text-sm md:text-base" style={{ fontFamily: "var(--font-technical)" }}>
+                  TAP TO DIG
+                </p>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-
-
-      {/* GRILLE D'ALBUMS */}
-      <div className="px-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-4">
-        {isLoadingLibrary ? (
-          // Skeletons pendant le chargement
-          Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="aspect-square bg-[#111] border border-white/5 animate-pulse">
-              <div className="w-full h-full bg-neutral-800/50"></div>
-            </div>
-          ))
-        ) : !supabase ? (
-          // Message d'erreur si Supabase n'est pas configuré
-          <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
-            <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-6 max-w-md">
-              <h3 className="text-white font-bold text-lg mb-2">Configuration manquante</h3>
-              <p className="text-red-300 text-sm mb-4">
-                Les variables d'environnement Supabase ne sont pas configurées.
-              </p>
-              <div className="text-neutral-400 text-xs space-y-3 text-left">
-                <div>
-                  <p className="font-semibold mb-2">Pour le développement local :</p>
-                  <ol className="list-decimal list-inside space-y-1 ml-2">
-                    <li>Créez un fichier <code className="bg-black/50 px-1 rounded">.env.local</code> dans le dossier <code className="bg-black/50 px-1 rounded">kissa-frontend</code></li>
-                    <li>Ajoutez les variables :</li>
-                  </ol>
-                  <pre className="bg-black/50 p-2 rounded mt-2 text-[10px] overflow-x-auto">
-{`NEXT_PUBLIC_SUPABASE_URL=votre_url
-NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
-                  </pre>
-                </div>
-                <div>
-                  <p className="font-semibold mb-2">Pour Vercel (production) :</p>
-                  <ol className="list-decimal list-inside space-y-1 ml-2">
-                    <li>Allez dans votre projet Vercel → Settings → Environment Variables</li>
-                    <li>Ajoutez <code className="bg-black/50 px-1 rounded">NEXT_PUBLIC_SUPABASE_URL</code> et <code className="bg-black/50 px-1 rounded">NEXT_PUBLIC_SUPABASE_KEY</code></li>
-                    <li>Redéployez l'application</li>
-                  </ol>
-                </div>
-                <div className="mt-3 pt-3 border-t border-red-500/30">
-                  <p className="text-red-300 text-[10px]">
-                    Obtenez vos clés Supabase :{" "}
-                    <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline hover:text-red-200">
-                      Dashboard Supabase → Settings → API
-                    </a>
-                  </p>
-                </div>
+      {/* VUE SETUP */}
+      {currentView === "SETUP" && (
+        <div className="px-6 py-12 max-w-2xl mx-auto">
+          <h2 className="lightbox-sign inline-block rounded-xl px-4 py-2 text-sm mb-8">SETTINGS</h2>
+          
+          <div className="space-y-6">
+            {/* Section Sound */}
+            <div className="bg-[#111] border border-white/10 rounded-lg p-6">
+              <h3 className="amp-label text-white mb-4">SOUND</h3>
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-400 text-sm">Audio Feedback</span>
+                <SoundToggle />
               </div>
             </div>
-          </div>
-        ) : filteredAlbums.length === 0 && allAlbums.length === 0 ? (
-          // Message si aucune donnée n'est chargée
-          <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
-            <div className="bg-neutral-900/50 border border-white/10 rounded-lg p-6 max-w-md">
-              <h3 className="amp-label text-white text-lg mb-2 font-semibold">YOUR SHELF IS EMPTY</h3>
-              <p className="text-neutral-400 text-sm mb-4">
-                Start digging.
-              </p>
-              <p className="text-neutral-500 text-xs">
-                Use the camera to scan or dig manually.
-              </p>
+
+            {/* Placeholder pour futures préférences */}
+            <div className="bg-[#111] border border-white/10 rounded-lg p-6 opacity-50">
+              <h3 className="amp-label text-white mb-4">PREFERENCES</h3>
+              <p className="text-neutral-500 text-xs">More settings coming soon...</p>
             </div>
           </div>
-        ) : filteredAlbums.length === 0 ? (
-          // Message si les filtres ne donnent aucun résultat
-          <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
-            <div className="bg-neutral-900/50 border border-white/10 rounded-lg p-6 max-w-md">
-              <h3 className="amp-label text-white text-lg mb-2 font-semibold">NO MATCH</h3>
-              <p className="text-neutral-400 text-sm">
-                Try another query.
-              </p>
-            </div>
-          </div>
-        ) : (
-          filteredAlbums.map((album) => (
-
-          <div key={album.id} className="group relative aspect-square bg-[#111] overflow-hidden cursor-default border border-white/5">
-
-            <img 
-
-              src={album.display.cover_image || "/placeholder.png"} 
-
-              alt={album.display.title}
-
-              onClick={(e) => {
-                haptic.light();
-                // Sur mobile uniquement : ouvrir la modale
-                if (window.innerWidth < 768) {
-                  setSelectedAlbum(album);
-                }
-              }}
-
-              className={`w-full h-full object-cover transition-transform duration-500 ease-out md:relative md:z-10 md:group-hover:-translate-x-full group-hover:scale-110 md:group-hover:scale-100 cursor-pointer md:cursor-default ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
-
-            />
-
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm translate-y-full group-hover:translate-y-0 md:translate-y-0 md:z-0 transition-opacity duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] p-5 flex flex-col md:opacity-0 md:group-hover:opacity-100">
-
-              <div className="flex justify-between items-start mb-2">
-
-                <span className="amp-label">{album.details.year} • {album.details.label}</span>
-
-                <div className="flex gap-2">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // TODO: Ouvrir modale d'édition
-                      setSelectedAlbum(album);
-                    }} 
-                    className="text-neutral-700 hover:text-blue-400 transition-colors"
-                    title="Éditer"
-                  >
-                    <Edit className="w-3 h-3" />
-                  </button>
-                  <button onClick={(e) => handleDelete(album.id, e)} className="text-neutral-700 hover:text-red-500 transition-colors" title="DISCARD">
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-
-              </div>
-
-              <div className="mb-4">
-
-                <h3 className="text-white font-bold text-sm leading-tight mb-1">{album.display.title}</h3>
-
-                <p className="text-neutral-400 text-xs">{album.display.artist}</p>
-
-              </div>
-
-              {album.details.genre && album.details.genre.length > 0 && (
-                <div className="mb-3">
-                  <h4 className="amp-label mb-2">GENRE{album.details.genre.length > 1 ? 'S' : ''}</h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {album.details.genre.map((g, i) => (
-                      <span key={i} className="amp-label inline-block bg-zinc-800 text-zinc-300 border border-zinc-700 rounded px-2 py-1">
-                        {g}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {album.details.tracklist && album.details.tracklist.length > 0 && (
-                <div className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-700 pr-2 mb-3">
-                  <h4 className="amp-label mb-2">Tracklist</h4>
-                  <ul className="space-y-1">
-                    {album.details.tracklist.map((track, i) => (
-                      <li key={i} className="text-[10px] text-neutral-300 leading-relaxed">
-                        <span className="text-neutral-500 mr-2">{String(i + 1).padStart(2, '0')}.</span>
-                        {track}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {album.links.spotify_id && (
-
-                <button onClick={() => handlePlay(album)} className="amp-label mt-3 w-full bg-white text-black py-2 rounded-sm font-semibold hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2">
-
-                  <Play className="w-3 h-3 fill-current" /> PLAY
-
-                </button>
-
-              )}
-
-            </div>
-
-            {currentTrack?.id === album.id && (
-
-               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-
-                 <div className="w-12 h-12 rounded-full border-2 border-white/20 animate-[spin_3s_linear_infinite] flex items-center justify-center"><div className="w-3 h-3 bg-red-500 rounded-full" /></div>
-
-               </div>
-
-            )}
-
-          </div>
-
-          ))
-        )}
-
-      </div>
+        </div>
+      )}
 
 
 
-      {/* LECTEUR FOOTER */}
+      {/* LECTEUR FOOTER - Visible sur toutes les vues */}
 
       {currentTrack && (
 
-        <div className="fixed bottom-0 left-0 right-0 h-24 bg-black/95 border-t border-white/10 backdrop-blur-xl z-50 flex items-center px-4 md:px-8 shadow-2xl animate-in slide-in-from-bottom-24 duration-500">
+        <div className="fixed bottom-16 left-0 right-0 h-24 bg-black/95 border-t border-white/10 backdrop-blur-xl z-40 flex items-center px-4 md:px-8 shadow-2xl animate-in slide-in-from-bottom-24 duration-500">
 
           <div className="flex items-center gap-4 w-1/3">
 
@@ -1143,7 +1235,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-[scaleIn_0.2s_ease-out]"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 animate-[scaleIn_0.2s_ease-out]"
         >
           <div className="lightbox-sign rounded-lg px-4 py-2 text-sm">
             {successToast}
@@ -1151,6 +1243,8 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
         </div>
       )}
 
+      {/* Bottom Navigation */}
+      <BottomNav />
     </main>
 
   );
