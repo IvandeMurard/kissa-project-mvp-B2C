@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import { useHaptic } from "@/hooks/useHaptic";
 import { useKissaSound } from "@/hooks/useKissaSound";
 import { SoundToggle } from "@/components/SoundToggle";
+import { AlbumDetailView } from "@/components/AlbumDetailView";
 
 // --- TYPES ---
 
@@ -105,12 +106,6 @@ export default function Home() {
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
 
   const [successToast, setSuccessToast] = useState<string | null>(null);
-
-  const [activeTab, setActiveTab] = useState<"tracklist" | "sleeve">("tracklist");
-
-  const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
-
-  const [isSavingPurchaseData, setIsSavingPurchaseData] = useState(false);
 
   // --- ÉTATS VUES ET MODE GESTION ---
   const [currentView, setCurrentView] = useState<"SHELF" | "DIG" | "SETUP">("DIG");
@@ -318,101 +313,6 @@ export default function Home() {
 
   };
 
-  // Fonction pour générer les notes éditoriales
-  const handleGenerateNotes = async (albumId: string) => {
-    setIsGeneratingNotes(true);
-    haptic.light();
-
-    try {
-      const response = await fetch(`${API_URL}/albums/${albumId}/generate-notes`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Erreur ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      // Mettre à jour l'album sélectionné
-      setSelectedAlbum((prev) => 
-        prev ? { ...prev, editorial_notes: result.editorial_notes } : null
-      );
-
-      // Rafraîchir la bibliothèque
-      await fetchLibrary();
-      
-      haptic.medium();
-    } catch (error) {
-      console.error("❌ Erreur lors de la génération de notes:", error);
-      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-      setSuccessToast(`Erreur: ${errorMessage}`);
-      setTimeout(() => setSuccessToast(null), 3000);
-    } finally {
-      setIsGeneratingNotes(false);
-    }
-  };
-
-  // Fonction pour mettre à jour les données d'achat
-  const handleUpdatePurchaseData = async (
-    albumId: string,
-    data: { date?: string; location?: string; price?: number; condition?: string }
-  ) => {
-    setIsSavingPurchaseData(true);
-
-    try {
-      const response = await fetch(`${API_URL}/albums/${albumId}/context`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Erreur ${response.status}`);
-      }
-
-      const updatedAlbum = await response.json();
-      
-      // Mettre à jour l'album sélectionné
-      setSelectedAlbum((prev) => 
-        prev ? { ...prev, purchase_data: updatedAlbum.purchase_data } : null
-      );
-
-      // Rafraîchir la bibliothèque
-      await fetchLibrary();
-      
-    } catch (error) {
-      console.error("❌ Erreur lors de la mise à jour:", error);
-      // Erreur silencieuse - pas d'alerte intrusive
-    } finally {
-      setIsSavingPurchaseData(false);
-    }
-  };
-
-  // Fonction simple pour rendre le markdown
-  const renderMarkdown = (text: string) => {
-    // Remplacer **texte** par <strong> (en premier pour éviter les conflits)
-    let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    // Remplacer *texte* par <em> (mais seulement si ce n'est pas déjà dans un strong)
-    html = html.replace(/\*([^*]+)\*/g, (match, content) => {
-      // Vérifier si le contenu est déjà dans un strong
-      if (match.includes('<strong>') || match.includes('</strong>')) {
-        return match;
-      }
-      return `<em>${content}</em>`;
-    });
-    // Diviser en paragraphes (double saut de ligne)
-    const paragraphs = html.split(/\n\n+/);
-    return paragraphs
-      .filter(para => para.trim())
-      .map((para, i) => (
-        <p key={i} dangerouslySetInnerHTML={{ __html: para.trim().replace(/\n/g, '<br />') }} />
-      ));
-  };
 
 
 
@@ -920,66 +820,40 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                     className={`w-full h-full object-cover transition-transform duration-500 ease-out md:relative md:z-10 md:group-hover:-translate-x-full group-hover:scale-110 md:group-hover:scale-100 cursor-pointer md:cursor-default ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
                   />
 
-                  <div className="absolute inset-0 bg-black/90 backdrop-blur-sm translate-y-full group-hover:translate-y-0 md:translate-y-0 md:z-0 transition-opacity duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] p-5 flex flex-col md:opacity-0 md:group-hover:opacity-100">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="amp-label">{album.details.year} • {album.details.label}</span>
-                      {/* Boutons d'action - affichés uniquement si isManageMode est true */}
-                      {isManageMode && (
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedAlbum(album);
-                            }} 
-                            className="text-neutral-700 hover:text-blue-400 transition-colors"
-                            title="Éditer"
-                          >
-                            <Edit className="w-3 h-3" />
-                          </button>
-                          <button onClick={(e) => handleDelete(album.id, e)} className="text-neutral-700 hover:text-red-500 transition-colors" title="DISCARD">
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mb-4">
-                      <h3 className="text-white font-bold text-sm leading-tight mb-1">{album.display.title}</h3>
-                      <p className="text-neutral-400 text-xs">{album.display.artist}</p>
-                    </div>
-
-                    {album.details.genre && album.details.genre.length > 0 && (
-                      <div className="mb-3">
-                        <h4 className="amp-label mb-2">GENRE{album.details.genre.length > 1 ? 'S' : ''}</h4>
-                        <div className="flex flex-wrap gap-1.5">
-                          {album.details.genre.map((g, i) => (
-                            <span key={i} className="amp-label inline-block bg-zinc-800 text-zinc-300 border border-zinc-700 rounded px-2 py-1">
-                              {g}
-                            </span>
-                          ))}
-                        </div>
+                  <div className="absolute inset-0 bg-black/90 backdrop-blur-sm translate-y-full group-hover:translate-y-0 md:translate-y-0 md:z-0 transition-opacity duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] md:opacity-0 md:group-hover:opacity-100 overflow-hidden">
+                    {/* Boutons d'action - affichés uniquement si isManageMode est true */}
+                    {isManageMode && (
+                      <div className="absolute top-3 right-3 z-10 flex gap-2">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedAlbum(album);
+                          }} 
+                          className="text-neutral-700 hover:text-blue-400 transition-colors bg-black/50 p-1 rounded"
+                          title="Éditer"
+                        >
+                          <Edit className="w-3 h-3" />
+                        </button>
+                        <button 
+                          onClick={(e) => handleDelete(album.id, e)} 
+                          className="text-neutral-700 hover:text-red-500 transition-colors bg-black/50 p-1 rounded" 
+                          title="DISCARD"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                       </div>
                     )}
-
-                    {album.details.tracklist && album.details.tracklist.length > 0 && (
-                      <div className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-700 pr-2 mb-3">
-                        <h4 className="amp-label mb-2">Tracklist</h4>
-                        <ul className="space-y-1">
-                          {album.details.tracklist.map((track, i) => (
-                            <li key={i} className="text-[10px] text-neutral-300 leading-relaxed">
-                              <span className="text-neutral-500 mr-2">{String(i + 1).padStart(2, '0')}.</span>
-                              {track}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {album.links.spotify_id && (
-                      <button onClick={() => handlePlay(album)} className="amp-label mt-3 w-full bg-white text-black py-2 rounded-sm font-semibold hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2">
-                        <Play className="w-3 h-3 fill-current" /> PLAY
-                      </button>
-                    )}
+                    <AlbumDetailView
+                      album={album}
+                      onUpdateAlbum={(updated) => {
+                        setAllAlbums(prev => prev.map(a => a.id === updated.id ? updated : a));
+                        fetchLibrary();
+                      }}
+                      onPlay={() => handlePlay(album)}
+                      showActions={false}
+                      compact={true}
+                      API_URL={API_URL}
+                    />
                   </div>
 
                   {currentTrack?.id === album.id && (
@@ -1152,10 +1026,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
       {selectedAlbum && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-black/60 p-4 animate-in fade-in duration-300"
-          onClick={() => {
-            setSelectedAlbum(null);
-            setActiveTab("tracklist");
-          }}
+          onClick={() => setSelectedAlbum(null)}
         >
           <div 
             key={selectedAlbum.id}
@@ -1172,225 +1043,30 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
               />
             </div>
 
-            {/* Section Texte */}
-            <div className="flex flex-col flex-1 p-6 relative overflow-y-auto">
+            {/* Section Texte avec AlbumDetailView */}
+            <div className="flex flex-col flex-1 relative">
               {/* Bouton Fermer */}
               <button 
-                onClick={() => {
-                  setSelectedAlbum(null);
-                  setActiveTab("tracklist");
-                }}
+                onClick={() => setSelectedAlbum(null)}
                 className="absolute top-4 right-4 z-10 text-neutral-400 hover:text-white transition-colors"
                 aria-label="Fermer"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              {/* Header */}
-              <div className="mb-4 pr-8">
-                <h3 className="text-2xl font-bold text-white leading-tight mb-1">
-                  {selectedAlbum.display.title}
-                </h3>
-                <p className="text-lg text-zinc-400">
-                  {selectedAlbum.display.artist}
-                </p>
-              </div>
-
-              {/* Tags */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {selectedAlbum.details.year && (
-                  <span className="amp-label bg-zinc-800 text-zinc-300 px-2 py-1 rounded">
-                    {selectedAlbum.details.year}
-                  </span>
-                )}
-                {selectedAlbum.details.genre && selectedAlbum.details.genre.length > 0 && (
-                  selectedAlbum.details.genre.map((genre, i) => (
-                    <span key={i} className="amp-label bg-zinc-800 text-zinc-300 px-2 py-1 rounded">
-                      {genre}
-                    </span>
-                  ))
-                )}
-              </div>
-
-              {/* Onglets */}
-              <div className="flex gap-6 mb-6 border-b border-white/10">
-                <button
-                  onClick={() => setActiveTab("tracklist")}
-                  className={`pb-2 px-1 text-sm font-medium transition-colors ${
-                    activeTab === "tracklist"
-                      ? "text-white border-b-2 border-white"
-                      : "text-zinc-400 hover:text-zinc-300"
-                  }`}
-                >
-                  TRACKLIST
-                </button>
-                <button
-                  onClick={() => setActiveTab("sleeve")}
-                  className={`pb-2 px-1 text-sm font-medium transition-colors ${
-                    activeTab === "sleeve"
-                      ? "text-white border-b-2 border-white"
-                      : "text-zinc-400 hover:text-zinc-300"
-                  }`}
-                >
-                  SLEEVE NOTES
-                </button>
-              </div>
-
-              {/* Contenu des onglets */}
-              <div className="flex-1 overflow-y-auto">
-                {activeTab === "tracklist" ? (
-                  /* Onglet TRACKLIST */
-                  <div className="space-y-2">
-                    {selectedAlbum.details.tracklist && selectedAlbum.details.tracklist.length > 0 ? (
-                      selectedAlbum.details.tracklist.map((track, i) => (
-                        <div key={i} className="text-zinc-300 text-sm py-1">
-                          {i + 1}. {track}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-zinc-500 text-sm">Aucune piste disponible</p>
-                    )}
-                  </div>
-                ) : (
-                  /* Onglet SLEEVE NOTES */
-                  <div className="space-y-6">
-                    {/* Section Acquisition Log */}
-                    <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-4">
-                      <h4 className="text-xs uppercase tracking-wider text-zinc-400 mb-3 amp-label">
-                        Acquisition Log
-                      </h4>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-xs text-zinc-500 mb-1 block">Lieu</label>
-                          <input
-                            type="text"
-                            placeholder="Acquired at..."
-                            value={selectedAlbum.purchase_data?.location || ""}
-                            onBlur={(e) => {
-                              if (e.target.value !== selectedAlbum.purchase_data?.location) {
-                                handleUpdatePurchaseData(selectedAlbum.id, {
-                                  location: e.target.value || undefined,
-                                });
-                              }
-                            }}
-                            className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-zinc-500 mb-1 block">Date</label>
-                          <input
-                            type="text"
-                            placeholder="Date"
-                            value={selectedAlbum.purchase_data?.date || ""}
-                            onBlur={(e) => {
-                              if (e.target.value !== selectedAlbum.purchase_data?.date) {
-                                handleUpdatePurchaseData(selectedAlbum.id, {
-                                  date: e.target.value || undefined,
-                                });
-                              }
-                            }}
-                            className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-zinc-500 mb-1 block">Prix</label>
-                          <input
-                            type="number"
-                            placeholder="Price paid"
-                            value={selectedAlbum.purchase_data?.price || ""}
-                            onBlur={(e) => {
-                              const price = e.target.value ? parseFloat(e.target.value) : undefined;
-                              if (price !== selectedAlbum.purchase_data?.price) {
-                                handleUpdatePurchaseData(selectedAlbum.id, {
-                                  price: price,
-                                });
-                              }
-                            }}
-                            className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-zinc-500 mb-1 block">Condition</label>
-                          <input
-                            type="text"
-                            placeholder="Condition"
-                            value={selectedAlbum.purchase_data?.condition || ""}
-                            onBlur={(e) => {
-                              if (e.target.value !== selectedAlbum.purchase_data?.condition) {
-                                handleUpdatePurchaseData(selectedAlbum.id, {
-                                  condition: e.target.value || undefined,
-                                });
-                              }
-                            }}
-                            className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Section Editorial */}
-                    <div className="bg-zinc-900/80 border border-zinc-800/50 rounded-lg p-6">
-                      <h4 className="text-xs uppercase tracking-wider text-zinc-400 mb-4 amp-label">
-                        Editorial
-                      </h4>
-                      {selectedAlbum.editorial_notes ? (
-                        <div 
-                          className="text-lg leading-relaxed text-zinc-200 space-y-3"
-                          style={{ fontFamily: "var(--font-serif)" }}
-                        >
-                          {renderMarkdown(selectedAlbum.editorial_notes)}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center py-8">
-                          <button
-                            onClick={() => handleGenerateNotes(selectedAlbum.id)}
-                            disabled={isGeneratingNotes}
-                            className="border border-zinc-600 hover:border-zinc-400 text-zinc-300 hover:text-white py-3 px-6 rounded-sm text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isGeneratingNotes ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Digging into archives...
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles className="w-4 h-4" />
-                                GENERATE NOTES
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="mt-6 flex flex-col gap-3">
-                {selectedAlbum.links.spotify_url && (
-                  <a
-                    href={selectedAlbum.links.spotify_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => sounds.playVinylStart()}
-                    className="bg-[#1DB954] hover:bg-[#1ed760] text-white py-3 px-4 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    Listen on Spotify
-                  </a>
-                )}
-                {/* Bouton de suppression - affiché uniquement si isManageMode est true */}
-                {isManageMode && (
-                  <button 
-                    onClick={handleDeleteFromModal}
-                    className="amp-label bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-sm font-semibold transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    DISCARD
-                  </button>
-                )}
-              </div>
+              <AlbumDetailView
+                album={selectedAlbum}
+                onUpdateAlbum={(updated) => {
+                  setSelectedAlbum(updated);
+                  fetchLibrary();
+                }}
+                onDelete={handleDeleteFromModal}
+                showActions={true}
+                isManageMode={isManageMode}
+                API_URL={API_URL}
+                sounds={sounds}
+                compact={false}
+              />
             </div>
           </div>
         </div>
