@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Sparkles, ExternalLink, Trash2, Play, Disc, Target, PlayCircle } from "lucide-react";
+import { Loader2, Sparkles, ExternalLink, Trash2, Play } from "lucide-react";
 
 interface Album {
   id: string;
@@ -191,14 +191,6 @@ export function AlbumDetailView({
     }
   };
 
-  // Fonction pour gérer le preview audio d'une piste
-  const handleTrackPreview = (spotifyUrl: string) => {
-    if (spotifyUrl) {
-      window.open(spotifyUrl, '_blank', 'noopener,noreferrer');
-      sounds?.playVinylStart();
-    }
-  };
-
   // Fonction simple pour rendre le markdown avec lettrine
   const renderMarkdown = (text: string) => {
     // Remplacer **texte** par <strong> (en premier pour éviter les conflits)
@@ -343,61 +335,34 @@ export function AlbumDetailView({
       <div className={`flex-1 ${compact ? '' : 'overflow-y-auto'}`}>
         {activeTab === "tracklist" ? (
           /* Onglet TRACKLIST */
-          <div className={compact ? "space-y-1" : "space-y-2"}>
-            {localAlbum.details.tracklist && localAlbum.details.tracklist.length > 0 ? (
-              localAlbum.details.tracklist.map((track, i) => {
+          localAlbum.details.tracklist && localAlbum.details.tracklist.length > 0 ? (
+            <ul className={compact ? "space-y-0" : "space-y-1"} role="list">
+              {localAlbum.details.tracklist.map((track, i) => {
                 const isFocus = optimisticFocusIndices.includes(i);
                 return (
-                  <div
+                  <li
                     key={i}
                     onClick={() => handleToggleFocusTrack(localAlbum.id, i)}
-                    className={`group flex items-center gap-2 w-full cursor-pointer transition-all duration-200 hover:bg-white/5 rounded px-2 ${
-                      compact ? 'py-0.5' : 'py-1.5'
-                    }`}
+                    className="flex items-center py-1 cursor-pointer group border-l-2 border-transparent hover:border-amber-500/50 pl-2 transition-all"
                   >
-                    {/* Zone Gauche - Ghost Marker */}
-                    <div className="w-8 flex items-center justify-center flex-shrink-0">
-                      {isFocus ? (
-                        <Target 
-                          className="w-4 h-4 text-[#FFB347]" 
-                          fill="currentColor" 
-                          style={{ filter: 'drop-shadow(0 0 3px rgba(255, 179, 71, 0.6))' }} 
-                        />
-                      ) : (
-                        <>
-                          <span className="text-zinc-500 group-hover:hidden">{i + 1}</span>
-                          <Target 
-                            className="w-4 h-4 text-zinc-600 hidden group-hover:block" 
-                            strokeWidth={1.5} 
-                          />
-                        </>
-                      )}
-                    </div>
-                    
-                    {/* Zone Centre - Titre */}
-                    <div className={`flex-1 ${isFocus ? 'text-[#FFB347] font-medium' : 'text-zinc-300'} ${contentSize}`}>
+                    <span
+                      className={`w-8 flex-shrink-0 text-zinc-600 ${isFocus ? "text-[#FFB347] font-bold" : ""}`}
+                      style={{ fontFamily: "var(--font-technical)" }}
+                    >
+                      {i + 1}.
+                    </span>
+                    <span
+                      className={`flex-1 font-sans text-zinc-300 group-hover:text-zinc-100 ${isFocus ? "text-[#FFB347] font-medium" : ""}`}
+                    >
                       {track}
-                    </div>
-                    
-                    {/* Zone Droite - Preview */}
-                    {localAlbum.links.spotify_url && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleTrackPreview(localAlbum.links.spotify_url);
-                        }}
-                        className="w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-white/10 rounded flex-shrink-0"
-                      >
-                        <PlayCircle className="w-5 h-5 text-zinc-400 hover:text-zinc-300" />
-                      </button>
-                    )}
-                  </div>
+                    </span>
+                  </li>
                 );
-              })
-            ) : (
-              <p className={`text-zinc-500 ${contentSize}`}>Aucune piste disponible</p>
-            )}
-          </div>
+              })}
+            </ul>
+          ) : (
+            <p className={`text-zinc-500 ${contentSize}`}>Aucune piste disponible</p>
+          )
         ) : activeTab === "sleeve" ? (
           /* Onglet SLEEVE NOTES - Acquisition Log uniquement */
           <div className={`${compact ? "space-y-3" : "space-y-6"} transition-opacity duration-300`}>
