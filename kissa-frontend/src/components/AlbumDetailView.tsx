@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Sparkles, ExternalLink, Trash2, Play } from "lucide-react";
+import { Loader2, Sparkles, ExternalLink, Trash2, Play, Disc } from "lucide-react";
 
 interface Album {
   id: string;
@@ -11,6 +11,7 @@ interface Album {
   purchase_data?: { date?: string; location?: string; price?: number; condition?: string } | null;
   editorial_notes?: string | null;
   storage_location?: string | null;
+  focus_track_indices?: number[];
 }
 
 interface AlbumDetailViewProps {
@@ -41,6 +42,7 @@ export function AlbumDetailView({
   const [activeTab, setActiveTab] = useState<"tracklist" | "sleeve" | "story">("tracklist");
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
   const [isSavingPurchaseData, setIsSavingPurchaseData] = useState(false);
+  const [isTogglingTrack, setIsTogglingTrack] = useState(false);
   const [localAlbum, setLocalAlbum] = useState<Album>(initialAlbum);
 
   // Synchroniser localAlbum avec initialAlbum si l'album change
@@ -116,6 +118,41 @@ export function AlbumDetailView({
       console.error("❌ Erreur lors de la mise à jour:", error);
     } finally {
       setIsSavingPurchaseData(false);
+    }
+  };
+
+  // Fonction pour toggle le statut "Focus Track" d'une piste
+  const handleToggleFocusTrack = async (albumId: string, trackIndex: number) => {
+    if (isTogglingTrack) return; // Éviter les clics multiples
+    
+    setIsTogglingTrack(true);
+
+    try {
+      const response = await fetch(`${API_URL}/albums/${albumId}/toggle-track/${trackIndex}`, {
+        method: "PATCH",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Erreur ${response.status}`);
+      }
+
+      const updatedAlbum = await response.json();
+      
+      // Mettre à jour l'album local avec les nouveaux focus_track_indices
+      const updated = {
+        ...localAlbum,
+        focus_track_indices: updatedAlbum.focus_track_indices || [],
+      };
+      setLocalAlbum(updated);
+      
+      if (onUpdateAlbum) {
+        onUpdateAlbum(updated);
+      }
+    } catch (error) {
+      console.error("❌ Erreur lors du toggle focus track:", error);
+    } finally {
+      setIsTogglingTrack(false);
     }
   };
 
@@ -265,11 +302,29 @@ export function AlbumDetailView({
           /* Onglet TRACKLIST */
           <div className={compact ? "space-y-1" : "space-y-2"}>
             {localAlbum.details.tracklist && localAlbum.details.tracklist.length > 0 ? (
-              localAlbum.details.tracklist.map((track, i) => (
-                <div key={i} className={`text-zinc-300 ${contentSize} ${compact ? 'py-0.5' : 'py-1'}`}>
-                  {i + 1}. {track}
-                </div>
-              ))
+              localAlbum.details.tracklist.map((track, i) => {
+                const isFocus = localAlbum.focus_track_indices?.includes(i) || false;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handleToggleFocusTrack(localAlbum.id, i)}
+                    disabled={isTogglingTrack}
+                    className={`flex items-center gap-2 w-full text-left transition-colors ${
+                      isFocus 
+                        ? 'text-[#FFB347]' 
+                        : 'text-zinc-300 hover:text-zinc-200'
+                    } ${contentSize} ${compact ? 'py-0.5' : 'py-1'} disabled:opacity-50 disabled:cursor-not-allowed group`}
+                  >
+                    {isFocus ? (
+                      <Sparkles className="w-4 h-4 flex-shrink-0" style={{ filter: 'drop-shadow(0 0 2px rgba(255, 179, 71, 0.5))' }} />
+                    ) : (
+                      <Disc className="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-20 transition-opacity text-zinc-600" />
+                    )}
+                    <span className="font-medium">{i + 1}.</span>
+                    <span>{track}</span>
+                  </button>
+                );
+              })
             ) : (
               <p className={`text-zinc-500 ${contentSize}`}>Aucune piste disponible</p>
             )}

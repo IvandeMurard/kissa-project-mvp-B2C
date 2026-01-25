@@ -29,6 +29,8 @@ interface Album {
 
   storage_location?: string | null;
 
+  focus_track_indices?: number[];
+
 }
 
 
@@ -197,6 +199,8 @@ export default function Home() {
         editorial_notes: item.editorial_notes || null,
 
         storage_location: item.storage_location ?? null,
+
+        focus_track_indices: item.focus_track_indices || [],
 
       }));
 

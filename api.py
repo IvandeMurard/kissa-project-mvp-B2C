@@ -14,6 +14,13 @@ Ces colonnes permettent de stocker :
 -- Migration : Localisation physique (Shelf Location)
 ALTER TABLE albums
 ADD COLUMN IF NOT EXISTS storage_location TEXT DEFAULT NULL;
+
+-- Migration : Focus Track Indices (Pistes favorites pour DJs/Sélecteurs)
+ALTER TABLE albums
+ADD COLUMN IF NOT EXISTS focus_track_indices INTEGER[] DEFAULT '{}';
+
+Cette colonne permet de stocker les indices des pistes marquées comme "Favorites" ou "Pépites".
+Exemple : [0, 2] signifie que la piste 1 (index 0) et la piste 3 (index 2) sont marquées.
 """
 
 import sys
@@ -338,3 +345,58 @@ async def update_purchase_context(album_id: str, purchase_data: PurchaseDataUpda
     except Exception as e:
         print(f"❌ Erreur lors de la mise à jour du contexte : {e}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la mise à jour : {str(e)}")
+
+@app.patch("/albums/{album_id}/toggle-track/{track_index}")
+async def toggle_focus_track(album_id: str, track_index: int):
+    """
+    Toggle le statut "Focus Track" d'une piste spécifique d'un album.
+    Si la piste est déjà marquée, elle est retirée. Sinon, elle est ajoutée.
+    """
+    try:
+        # 1. Vérifier que l'album existe
+        response = supabase.table("albums").select("id, focus_track_indices, tracklist").eq("id", album_id).execute()
+        
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=404, detail=f"Album avec l'ID {album_id} introuvable")
+        
+        album = response.data[0]
+        
+        # 2. Valider track_index
+        if track_index < 0:
+            raise HTTPException(status_code=400, detail="track_index doit être un entier positif ou nul")
+        
+        # Optionnel : vérifier que l'index correspond à une piste existante
+        tracklist = album.get("tracklist") or []
+        if tracklist and track_index >= len(tracklist):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"track_index {track_index} est hors limites (album contient {len(tracklist)} piste(s))"
+            )
+        
+        # 3. Récupérer la liste actuelle des indices focus
+        current_indices = album.get("focus_track_indices") or []
+        
+        # 4. Toggle : si présent, retirer ; sinon, ajouter
+        if track_index in current_indices:
+            updated_indices = [i for i in current_indices if i != track_index]
+        else:
+            updated_indices = sorted(current_indices + [track_index])
+        
+        # 5. Sauvegarder dans Supabase
+        update_response = supabase.table("albums").update(
+            {"focus_track_indices": updated_indices}
+        ).eq("id", album_id).execute()
+        
+        if not update_response.data:
+            raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour")
+        
+        print(f"✅ Focus track togglé pour l'album {album_id}, piste {track_index}. Indices: {updated_indices}")
+        
+        # 6. Retourner l'album mis à jour
+        return update_response.data[0]
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"❌ Erreur lors du toggle focus track : {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors du toggle : {str(e)}")
