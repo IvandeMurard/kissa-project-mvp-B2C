@@ -10,6 +10,7 @@ interface Album {
   details: { year: string; label: string; genre: string[]; tracklist?: string[] };
   purchase_data?: { date?: string; location?: string; price?: number; condition?: string } | null;
   editorial_notes?: string | null;
+  storage_location?: string | null;
 }
 
 interface AlbumDetailViewProps {
@@ -78,10 +79,10 @@ export function AlbumDetailView({
     }
   };
 
-  // Fonction pour mettre à jour les données d'achat
+  // Fonction pour mettre à jour les données d'achat et la localisation
   const handleUpdatePurchaseData = async (
     albumId: string,
-    data: { date?: string; location?: string; price?: number; condition?: string }
+    data: { date?: string; location?: string; price?: number; condition?: string; storage_location?: string | null }
   ) => {
     setIsSavingPurchaseData(true);
 
@@ -101,11 +102,13 @@ export function AlbumDetailView({
 
       const updatedAlbum = await response.json();
       
-      // Mettre à jour l'album local
-      const updated = { ...localAlbum, purchase_data: updatedAlbum.purchase_data };
+      const updated = {
+        ...localAlbum,
+        purchase_data: updatedAlbum.purchase_data ?? localAlbum.purchase_data,
+        storage_location: updatedAlbum.storage_location ?? localAlbum.storage_location,
+      };
       setLocalAlbum(updated);
       
-      // Notifier le parent
       if (onUpdateAlbum) {
         onUpdateAlbum(updated);
       }
@@ -343,6 +346,25 @@ export function AlbumDetailView({
                       }
                     }}
                     className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
+                  />
+                </div>
+                <div>
+                  <label className={`text-xs text-zinc-500 mb-1 block amp-label`}>LOCATION / SHELF</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Box A, Top Shelf..."
+                    value={localAlbum.storage_location ?? ""}
+                    onBlur={(e) => {
+                      const val = e.target.value.trim();
+                      const prev = (localAlbum.storage_location ?? "").trim();
+                      if (val !== prev) {
+                        handleUpdatePurchaseData(localAlbum.id, {
+                          storage_location: val ? val : "",
+                        });
+                      }
+                    }}
+                    className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600 amp-label uppercase"
+                    style={{ fontFamily: "var(--font-technical)" }}
                   />
                 </div>
               </div>

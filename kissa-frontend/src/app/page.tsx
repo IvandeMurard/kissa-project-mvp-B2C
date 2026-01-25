@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 
-import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock, Sparkles } from "lucide-react";
+import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock, Sparkles, MapPin } from "lucide-react";
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -26,6 +26,8 @@ interface Album {
   purchase_data?: { date?: string; location?: string; price?: number; condition?: string } | null;
 
   editorial_notes?: string | null;
+
+  storage_location?: string | null;
 
 }
 
@@ -93,7 +95,7 @@ export default function Home() {
   // États UI Globaux
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortOption, setSortOption] = useState<"recent" | "artist" | "year">("recent");
+  const [sortOption, setSortOption] = useState<"recent" | "artist" | "year" | "location">("recent");
 
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
 
@@ -193,6 +195,8 @@ export default function Home() {
         purchase_data: item.purchase_data || null,
 
         editorial_notes: item.editorial_notes || null,
+
+        storage_location: item.storage_location ?? null,
 
       }));
 
@@ -562,12 +566,13 @@ export default function Home() {
     
     let filtered = [...allAlbums];
 
-    // Filtrage par recherche
+    // Filtrage par recherche (titre, artiste, localisation)
     if (searchQuery.trim()) {
       const queryLower = searchQuery.toLowerCase();
       filtered = filtered.filter((album) =>
         album.display.title.toLowerCase().includes(queryLower) ||
-        album.display.artist.toLowerCase().includes(queryLower)
+        album.display.artist.toLowerCase().includes(queryLower) ||
+        (album.storage_location ?? "").toLowerCase().includes(queryLower)
       );
       console.log(`🔍 Filtrage par recherche "${searchQuery}": ${filtered.length} résultat(s)`);
     }
@@ -588,9 +593,16 @@ export default function Home() {
           const yearB = parseInt(b.details.year) || 0;
           if (yearB !== yearA) return yearB - yearA;
           return a.display.artist.localeCompare(b.display.artist);
+        case "location": {
+          const sa = (a.storage_location ?? "").trim();
+          const sb = (b.storage_location ?? "").trim();
+          if (!sa && !sb) return 0;
+          if (!sa) return 1;
+          if (!sb) return -1;
+          return sa.localeCompare(sb);
+        }
         case "recent":
         default:
-          // Tri par created_at (déjà trié depuis Supabase, mais on garde pour cohérence)
           return 0;
       }
     });
@@ -724,12 +736,13 @@ export default function Home() {
                 <label className="amp-label text-neutral-500">SORT:</label>
                 <select
                   value={sortOption}
-                  onChange={(e) => setSortOption(e.target.value as "recent" | "artist" | "year")}
+                  onChange={(e) => setSortOption(e.target.value as "recent" | "artist" | "year" | "location")}
                   className="bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20 transition-all cursor-pointer"
                 >
                   <option value="recent">Ajouté récemment</option>
                   <option value="artist">Artiste (A-Z)</option>
                   <option value="year">Année</option>
+                  <option value="location">Rangement (A-Z)</option>
                 </select>
               </div>
             </div>
@@ -821,6 +834,15 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                     }}
                     className={`w-full h-full object-cover transition-transform duration-500 ease-out md:relative md:z-10 md:group-hover:-translate-x-full group-hover:scale-110 md:group-hover:scale-100 cursor-pointer md:cursor-default ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
                   />
+                  {album.storage_location?.trim() && (
+                    <span
+                      className="absolute bottom-2 right-2 z-10 flex items-center gap-1 border border-zinc-800 rounded-sm px-1 text-[10px] text-zinc-500 font-mono"
+                      style={{ fontFamily: "var(--font-technical)" }}
+                    >
+                      <MapPin className="w-2.5 h-2.5 shrink-0" />
+                      {album.storage_location.trim()}
+                    </span>
+                  )}
 
                   <div className="absolute inset-0 bg-black/90 backdrop-blur-sm translate-y-full group-hover:translate-y-0 md:translate-y-0 md:z-0 transition-opacity duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] md:opacity-0 md:group-hover:opacity-100 overflow-hidden">
                     {/* Boutons d'action - affichés uniquement si isManageMode est true */}

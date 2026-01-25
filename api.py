@@ -10,6 +10,10 @@ ADD COLUMN IF NOT EXISTS editorial_notes TEXT DEFAULT NULL;
 Ces colonnes permettent de stocker :
 - purchase_data : La mémoire personnelle (date, location, price, condition)
 - editorial_notes : La mémoire collective (texte généré par l'IA)
+
+-- Migration : Localisation physique (Shelf Location)
+ALTER TABLE albums
+ADD COLUMN IF NOT EXISTS storage_location TEXT DEFAULT NULL;
 """
 
 import sys
@@ -71,11 +75,12 @@ class CandidateRequest(BaseModel):
     query: str
 
 class PurchaseDataUpdate(BaseModel):
-    """Modèle pour mettre à jour les données d'achat (mémoire personnelle)"""
+    """Modèle pour mettre à jour les données d'achat (mémoire personnelle) et la localisation physique"""
     date: Optional[str] = None
     location: Optional[str] = None
     price: Optional[float] = None
     condition: Optional[str] = None
+    storage_location: Optional[str] = None
 
 class GenerateNotesResponse(BaseModel):
     """Réponse de génération de notes éditoriales"""
@@ -279,8 +284,8 @@ Exemple de ton attendu : 'Dès les premières mesures de Space is Only Noise, on
 @app.patch("/albums/{album_id}/context")
 async def update_purchase_context(album_id: str, purchase_data: PurchaseDataUpdate):
     """
-    Met à jour le champ purchase_data (mémoire personnelle) d'un album.
-    Permet de stocker : date, location, price, condition.
+    Met à jour le champ purchase_data (mémoire personnelle) et/ou storage_location d'un album.
+    Permet de stocker : date, location, price, condition, storage_location.
     """
     try:
         # 1. Vérifier que l'album existe
@@ -300,29 +305,32 @@ async def update_purchase_context(album_id: str, purchase_data: PurchaseDataUpda
         if purchase_data.condition is not None:
             purchase_dict["condition"] = purchase_data.condition
         
-        # Si aucun champ n'est fourni, retourner une erreur
-        if not purchase_dict:
+        has_storage = purchase_data.storage_location is not None
+        
+        # Au moins un champ requis (purchase ou storage_location)
+        if not purchase_dict and not has_storage:
             raise HTTPException(
-                status_code=400, 
-                detail="Au moins un champ doit être fourni (date, location, price, condition)"
+                status_code=400,
+                detail="Au moins un champ doit être fourni (date, location, price, condition, storage_location)"
             )
         
-        # 3. Récupérer les données existantes pour fusionner
-        existing_response = supabase.table("albums").select("purchase_data").eq("id", album_id).execute()
-        existing_purchase_data = existing_response.data[0].get("purchase_data") or {}
+        update_payload = {}
         
-        # Fusionner les données existantes avec les nouvelles
-        updated_purchase_data = {**existing_purchase_data, **purchase_dict}
+        if purchase_dict:
+            existing_response = supabase.table("albums").select("purchase_data").eq("id", album_id).execute()
+            existing_purchase_data = existing_response.data[0].get("purchase_data") or {}
+            update_payload["purchase_data"] = {**existing_purchase_data, **purchase_dict}
         
-        # 4. Mettre à jour dans Supabase
-        update_response = supabase.table("albums").update({"purchase_data": updated_purchase_data}).eq("id", album_id).execute()
+        if has_storage:
+            update_payload["storage_location"] = purchase_data.storage_location
+        
+        update_response = supabase.table("albums").update(update_payload).eq("id", album_id).execute()
         
         if not update_response.data:
             raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour")
         
         print(f"✅ Contexte d'achat mis à jour pour l'album {album_id}")
         
-        # 5. Retourner l'album mis à jour
         return update_response.data[0]
         
     except HTTPException as he:
