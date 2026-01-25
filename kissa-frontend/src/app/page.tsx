@@ -104,6 +104,7 @@ export default function Home() {
   const [isPlaying, setIsPlaying] = useState(false);
 
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
+  const [modalActiveTab, setModalActiveTab] = useState<"tracklist" | "sleeve">("tracklist");
 
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
@@ -1035,7 +1036,9 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
             style={{ animation: 'scaleIn 0.3s ease-out' }}
           >
             {/* Section Image */}
-            <div className="h-[250px] md:w-1/2 md:h-full bg-[#000] overflow-hidden shrink-0">
+            <div className={`h-[250px] md:h-full bg-[#000] overflow-hidden shrink-0 transition-all duration-300 ${
+              modalActiveTab === "sleeve" ? "md:w-2/5" : "md:w-1/2"
+            }`}>
               <img 
                 src={selectedAlbum.display.cover_image || "/placeholder.png"} 
                 alt={selectedAlbum.display.title}
@@ -1044,10 +1047,15 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
             </div>
 
             {/* Section Texte avec AlbumDetailView */}
-            <div className="flex flex-col flex-1 relative">
+            <div className={`flex flex-col flex-1 relative transition-all duration-300 ${
+              modalActiveTab === "sleeve" ? "md:w-3/5" : "md:w-1/2"
+            }`}>
               {/* Bouton Fermer */}
               <button 
-                onClick={() => setSelectedAlbum(null)}
+                onClick={() => {
+                  setSelectedAlbum(null);
+                  setModalActiveTab("tracklist");
+                }}
                 className="absolute top-4 right-4 z-10 text-neutral-400 hover:text-white transition-colors"
                 aria-label="Fermer"
               >
@@ -1066,6 +1074,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                 API_URL={API_URL}
                 sounds={sounds}
                 compact={false}
+                onTabChange={(tab) => setModalActiveTab(tab)}
               />
             </div>
           </div>

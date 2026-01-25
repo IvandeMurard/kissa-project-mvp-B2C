@@ -22,6 +22,7 @@ interface AlbumDetailViewProps {
   API_URL: string;
   sounds?: { playVinylStart: () => void };
   compact?: boolean;
+  onTabChange?: (tab: "tracklist" | "sleeve") => void;
 }
 
 export function AlbumDetailView({
@@ -34,6 +35,7 @@ export function AlbumDetailView({
   API_URL,
   sounds,
   compact = false,
+  onTabChange,
 }: AlbumDetailViewProps) {
   const [activeTab, setActiveTab] = useState<"tracklist" | "sleeve">("tracklist");
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
@@ -114,7 +116,7 @@ export function AlbumDetailView({
     }
   };
 
-  // Fonction simple pour rendre le markdown
+  // Fonction simple pour rendre le markdown avec lettrine
   const renderMarkdown = (text: string) => {
     // Remplacer **texte** par <strong> (en premier pour éviter les conflits)
     let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -127,12 +129,42 @@ export function AlbumDetailView({
       return `<em>${content}</em>`;
     });
     // Diviser en paragraphes (double saut de ligne)
-    const paragraphs = html.split(/\n\n+/);
-    return paragraphs
-      .filter(para => para.trim())
-      .map((para, i) => (
-        <p key={i} dangerouslySetInnerHTML={{ __html: para.trim().replace(/\n/g, '<br />') }} />
-      ));
+    const paragraphs = html.split(/\n\n+/).filter(para => para.trim());
+    
+    return paragraphs.map((para, i) => {
+      const trimmedPara = para.trim();
+      const paraHtml = trimmedPara.replace(/\n/g, '<br />');
+      
+      // Ajouter la lettrine uniquement au premier paragraphe et en mode non-compact
+      if (i === 0 && !compact && trimmedPara.length > 0) {
+        // Extraire la première lettre (en ignorant les balises HTML et les espaces)
+        const textWithoutTags = trimmedPara.replace(/<[^>]*>/g, '');
+        const firstCharMatch = textWithoutTags.match(/^\s*(\S)/);
+        if (firstCharMatch) {
+          const firstChar = firstCharMatch[1];
+          // Trouver la position de la première lettre dans le HTML original
+          const firstCharIndex = trimmedPara.indexOf(firstChar);
+          const beforeFirstChar = trimmedPara.substring(0, firstCharIndex);
+          const afterFirstChar = trimmedPara.substring(firstCharIndex + 1);
+          const beforeHtml = beforeFirstChar.replace(/\n/g, '<br />');
+          const afterHtml = afterFirstChar.replace(/\n/g, '<br />');
+          
+          return (
+            <p key={i}>
+              <span dangerouslySetInnerHTML={{ __html: beforeHtml }} />
+              <span className="text-5xl float-left mr-4 leading-none" style={{ fontFamily: "var(--font-serif)" }}>
+                {firstChar}
+              </span>
+              <span dangerouslySetInnerHTML={{ __html: afterHtml }} />
+            </p>
+          );
+        }
+      }
+      
+      return (
+        <p key={i} dangerouslySetInnerHTML={{ __html: paraHtml }} />
+      );
+    });
   };
 
   // Styles adaptatifs selon le mode compact
@@ -173,7 +205,10 @@ export function AlbumDetailView({
       {/* Onglets */}
       <div className={`flex gap-6 ${compact ? 'mb-3' : 'mb-6'} border-b border-white/10`}>
         <button
-          onClick={() => setActiveTab("tracklist")}
+          onClick={() => {
+            setActiveTab("tracklist");
+            onTabChange?.("tracklist");
+          }}
           className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
             activeTab === "tracklist"
               ? "text-white border-b-2 border-white"
@@ -183,7 +218,10 @@ export function AlbumDetailView({
           TRACKLIST
         </button>
         <button
-          onClick={() => setActiveTab("sleeve")}
+          onClick={() => {
+            setActiveTab("sleeve");
+            onTabChange?.("sleeve");
+          }}
           className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
             activeTab === "sleeve"
               ? "text-white border-b-2 border-white"
@@ -287,16 +325,23 @@ export function AlbumDetailView({
             </div>
 
             {/* Section Editorial */}
-            <div className={`bg-zinc-900/80 border border-zinc-800/50 rounded-lg ${compact ? 'p-4' : 'p-6'}`}>
+            <div className={`${compact ? 'bg-zinc-900/80 border border-zinc-800/50 p-4' : 'bg-white/5 border border-zinc-800/30 p-10'} rounded-lg`}>
               <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-3' : 'mb-4'} amp-label`}>
                 Editorial
               </h4>
               {localAlbum.editorial_notes ? (
-                <div 
-                  className={`${compact ? 'text-sm' : 'text-lg'} leading-relaxed text-zinc-200 space-y-3`}
-                  style={{ fontFamily: "var(--font-serif)" }}
-                >
-                  {renderMarkdown(localAlbum.editorial_notes)}
+                <div>
+                  <div 
+                    className={`${compact ? 'text-sm leading-relaxed' : 'text-xl leading-loose'} text-zinc-300 text-justify space-y-3`}
+                    style={{ fontFamily: "var(--font-serif)" }}
+                  >
+                    {renderMarkdown(localAlbum.editorial_notes)}
+                  </div>
+                  {!compact && (
+                    <div className="amp-label text-xs text-zinc-500 mt-6 italic">
+                      — ARCHIVED IN KISSA
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className={`flex flex-col items-center justify-center ${compact ? 'py-4' : 'py-8'}`}>
