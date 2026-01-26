@@ -1,6 +1,7 @@
 import os
 
 import json
+import base64
 
 from dotenv import load_dotenv
 
@@ -130,46 +131,106 @@ class KissaCore:
         return text.replace("\n", " ").strip()
 
 
-    def _llm_extract_metadata(self, best_guess, raw_text):
+    def _llm_extract_metadata(self, image_path, best_guess=None, raw_text=None):
 
-        """Utilise GPT-4o-mini pour extraire l'artiste et l'album depuis les résultats OCR"""
+        """Utilise GPT-4o Vision pour extraire les métadonnées directement depuis l'image de pochette"""
 
         if not self.openai_client:
 
             return None
 
-        
-
-        # Construire le prompt utilisateur avec les données disponibles
-
-        user_content = "Texte brut OCR :\n"
-
-        if raw_text:
-
-            user_content += f"{raw_text}\n\n"
-
-        if best_guess:
-
-            user_content += f"Suggestion Google Vision : {best_guess}\n"
-
-        
-
-        if not raw_text and not best_guess:
+        if not image_path or not os.path.exists(image_path):
 
             return None
 
         
 
-        system_prompt = """Tu es un expert en discographie vinyle. Je vais te donner des textes bruts extraits d'une pochette d'album par OCR. Ta mission est d'identifier l'Artiste et le Titre de l'album.
-Ignorer les termes techniques comme 'Stereo', 'LP', '33rpm', 'Digitally Remastered', les labels, ou les numéros de série.
-Si les données sont trop floues ou incohérentes, renvoie null.
-Format de réponse attendu : JSON strict { "artist": string, "album": string }."""
+        # Encoder l'image en base64
+
+        try:
+
+            with open(image_path, "rb") as image_file:
+
+                image_data = image_file.read()
+
+                base64_image = base64.b64encode(image_data).decode('utf-8')
+
+        except Exception as e:
+
+            print(f"ATTENTION : Erreur lecture image pour GPT-4o Vision : {e}")
+
+            return None
+
+        
+
+        # Nouveau prompt système d'expert archiviste
+
+        system_prompt = """Tu es un expert archiviste de disques vinyles (Digger). Ta mission est d'extraire les métadonnées exactes à partir d'une photo de pochette, même si elle est abîmée, vintage ou obscure.
+
+ANALYSE VISUELLE AVANCÉE :
+1. **Format Detection :** Regarde les proportions et le style.
+   * Si c'est un **45 Tours (Single)** (souvent titre de la chanson en TRÈS GROS, artiste plus petit, logo '45' ou 'EP'): Le terme de recherche DOIT être "Artiste - Titre de la chanson". Ne cherche pas un nom d'album.
+   * Si c'est une **Bande Originale (OST)** (mots clés: 'Bande Originale', 'Soundtrack', 'Film de...'): Le Titre principal est le NOM DU FILM (ex: 'Orfeu Negro'), pas le compositeur ou le réalisateur.
+
+2. **OCR & Hiérarchie :**
+   * Ignore les textes marketing ('Disque d'or', 'Succès', 'Extraits de...').
+   * Sur l'image 'France Gall' fournie en exemple : Le texte rose 'FRANCE GALL' est l'artiste. Le texte blanc centré 'IL JOUAIT DU PIANO DEBOUT' est le titre. 'Extrait de l'album Paris-France' est une info secondaire, mais utile pour la recherche.
+   * Sur l'image 'Orfeu Negro' : 'ORFEU NEGRO' est le titre clé. 'Bande originale du film de Marcel Camus' est le contexte.
+
+STRATÉGIE DE RECHERCHE (Search Query Construction) :
+Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l'API Spotify/Discogs.
+* Pour un Single : Retourne le nom de l'album original dont il est issu si mentionné (ex: pour France Gall, l'album est 'Paris, France'), sinon utilise le titre de la chanson comme titre d'album.
+* Renvoie un JSON strict :
+    {
+      "artist": "Nom corrigé",
+      "title": "Titre corrigé",
+      "search_query": "La requête optimisée pour Spotify (ex: 'France Gall Il jouait du piano debout')",
+      "format_guess": "Single" | "LP" | "OST"
+    }"""
+
+        # Construire le message utilisateur avec l'image
+
+        user_content = []
+
+        # Ajouter l'image
+
+        user_content.append({
+
+            "type": "image_url",
+
+            "image_url": {
+
+                "url": f"data:image/jpeg;base64,{base64_image}"
+
+            }
+
+        })
+
+        # Ajouter du contexte textuel si disponible (pour aider l'IA)
+
+        text_context = "Analyse cette pochette de vinyle et extrais les métadonnées."
+
+        if raw_text:
+
+            text_context += f"\n\nTexte détecté par OCR : {raw_text}"
+
+        if best_guess:
+
+            text_context += f"\n\nSuggestion Google Vision : {best_guess}"
+
+        user_content.append({
+
+            "type": "text",
+
+            "text": text_context
+
+        })
 
         try:
 
             response = self.openai_client.chat.completions.create(
 
-                model="gpt-4o-mini",
+                model="gpt-4o",
 
                 messages=[
 
@@ -223,13 +284,17 @@ Format de réponse attendu : JSON strict { "artist": string, "album": string }."
 
             # Vérifier que les champs requis sont présents et non vides
 
-            if result.get("artist") and result.get("album"):
+            if result.get("artist") and result.get("title") and result.get("search_query"):
 
-                print(f"🤖 LLM extrait : {result['artist']} - {result['album']}")
+                print(f"🤖 GPT-4o Vision extrait : {result['artist']} - {result['title']} (Format: {result.get('format_guess', 'Unknown')})")
+
+                print(f"   🔍 Search query : {result['search_query']}")
 
                 return result
 
             else:
+
+                print(f"ATTENTION : Réponse LLM incomplète : {result}")
 
                 return None
 
@@ -238,6 +303,8 @@ Format de réponse attendu : JSON strict { "artist": string, "album": string }."
         except json.JSONDecodeError as e:
 
             print(f"ATTENTION : Erreur parsing JSON LLM : {e}")
+
+            print(f"   Contenu reçu : {content[:200]}...")
 
             return None
 
@@ -374,7 +441,7 @@ Format de réponse attendu : JSON strict { "artist": string, "album": string }."
 
 
 
-    def step_3_spotify(self, artist, album_title):
+    def step_3_spotify(self, artist, album_title, search_query=None):
 
         """Récupère le lien audio et la cover HD (Spotify)"""
 
@@ -386,7 +453,17 @@ Format de réponse attendu : JSON strict { "artist": string, "album": string }."
 
         print("Recherche Spotify...")
 
-        q = f"artist:{artist} album:{album_title}"
+        # Utiliser search_query optimisé si fourni, sinon construire la requête classique
+
+        if search_query:
+
+            q = search_query
+
+            print(f"   Utilisation search_query optimisé : {q}")
+
+        else:
+
+            q = f"artist:{artist} album:{album_title}"
 
         
 
@@ -454,18 +531,25 @@ Format de réponse attendu : JSON strict { "artist": string, "album": string }."
         if text_response.text_annotations:
             raw_text = text_response.text_annotations[0].description.replace('\n', ' ')
         
-        # 3. TENTATIVE LLM REASONING (Nouveau)
-        llm_result = self._llm_extract_metadata(best_guess, raw_text)
+        # 3. TENTATIVE LLM REASONING (GPT-4o Vision)
+        llm_result = self._llm_extract_metadata(image_path, best_guess, raw_text)
         
         if llm_result:
-            # Recherche précise avec les données LLM
-            query = f"{llm_result['artist']} {llm_result['album']}"
-            print(f"🔍 Recherche Discogs avec données LLM : '{query}'")
+            # Utiliser search_query optimisé pour la recherche Discogs
+            query = llm_result.get('search_query') or f"{llm_result['artist']} {llm_result['title']}"
+            print(f"🔍 Recherche Discogs avec données GPT-4o Vision : '{query}'")
+            print(f"   Format détecté : {llm_result.get('format_guess', 'Unknown')}")
             candidates = self.search_candidates(query)
             if candidates:
-                print("   ✅ Trouvé avec LLM !")
+                print("   ✅ Trouvé avec GPT-4o Vision !")
                 best_match = candidates[0]
-                return self.process_by_id(best_match['discogs_id'])
+                # Passer search_query à process_by_id pour optimiser la recherche Spotify
+                search_query = llm_result.get('search_query')
+                result = self.process_by_id(best_match['discogs_id'], search_query=search_query)
+                # Stocker le format_guess dans le résultat si disponible
+                if result.get('status') == 'success' and llm_result.get('format_guess'):
+                    result['format_guess'] = llm_result['format_guess']
+                return result
         
         # 4. FALLBACK : STRATÉGIE DE RECHERCHE & NETTOYAGE MANUEL
         search_terms = []
@@ -762,7 +846,7 @@ Format de réponse attendu : JSON strict { "artist": string, "album": string }."
 
 
 
-    def process_by_id(self, discogs_id):
+    def process_by_id(self, discogs_id, search_query=None):
 
         """Ajoute un album via son ID Discogs précis (Sélection utilisateur)"""
 
@@ -812,8 +896,9 @@ Format de réponse attendu : JSON strict { "artist": string, "album": string }."
                 artist_name = ", ".join([a.name for a in album.artists])
 
             # 2. Spotify (On utilise les infos précises de Discogs)
+            # Utiliser search_query optimisé si fourni (venant de GPT-4o Vision)
 
-            spotify_data = self.step_3_spotify(artist_name, album.title)
+            spotify_data = self.step_3_spotify(artist_name, album.title, search_query=search_query)
 
             
 
