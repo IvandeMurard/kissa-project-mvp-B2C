@@ -441,9 +441,55 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
 
 
 
+    def _fetch_spotify_tracks(self, album_id):
+
+        """Récupère toutes les pistes d'un album Spotify avec pagination"""
+
+        if not self.sp:
+
+            return None
+
+        try:
+
+            # Récupérer la première page (limite 50 par défaut)
+
+            tracks_response = self.sp.album_tracks(album_id, limit=50)
+
+            all_tracks = tracks_response['items']
+
+            
+
+            # Pagination : récupérer toutes les pages suivantes
+
+            while tracks_response['next']:
+
+                tracks_response = self.sp.next(tracks_response)
+
+                all_tracks.extend(tracks_response['items'])
+
+            
+
+            # Formater en liste simple de titres
+
+            tracklist = [track['name'] for track in all_tracks]
+
+            print(f"   ✅ {len(tracklist)} pistes récupérées depuis Spotify")
+
+            return tracklist
+
+            
+
+        except Exception as e:
+
+            print(f"ATTENTION : Erreur récupération tracks Spotify (non bloquant) : {e}")
+
+            return None
+
+
+
     def step_3_spotify(self, artist, album_title, search_query=None):
 
-        """Récupère le lien audio et la cover HD (Spotify)"""
+        """Récupère le lien audio, la cover HD et les tracks (Spotify)"""
 
         if not self.sp:
 
@@ -479,9 +525,17 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
 
                 spotify_album = items[0]
 
+                album_id = spotify_album['id']
+
                 # Spotify classe les images par taille, index 0 = la plus grande (640x640)
 
                 hd_cover = spotify_album['images'][0]['url'] if spotify_album['images'] else None
+
+                
+
+                # Récupérer les tracks avec pagination
+
+                tracks = self._fetch_spotify_tracks(album_id)
 
                 
 
@@ -491,7 +545,9 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
 
                     "spotify_uri": spotify_album['uri'],
 
-                    "cover_hd": hd_cover
+                    "cover_hd": hd_cover,
+
+                    "tracks": tracks
 
                 }
 
@@ -632,6 +688,20 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
 
                 final_cover = spotify_data['cover_hd']
 
+        # Prioriser la tracklist Spotify si disponible, sinon utiliser Discogs
+
+        if spotify_data and spotify_data.get('tracks'):
+
+            tracklist = spotify_data['tracks']
+
+            print(f"   ✅ Tracklist récupérée depuis Spotify ({len(tracklist)} pistes)")
+
+        else:
+
+            tracklist = discogs_data['tracklist']
+
+            print(f"   ✅ Tracklist récupérée depuis Discogs ({len(tracklist)} pistes)")
+
         return {
 
             "status": "success",
@@ -656,7 +726,7 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
 
                 "genre": discogs_data['genre'],
 
-                "tracklist": discogs_data['tracklist']
+                "tracklist": tracklist
 
             },
 
@@ -922,7 +992,19 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
 
                     final_cover = spotify_data['cover_hd']
 
-            clean_tracklist = [t.title for t in album.tracklist if t.position]
+            # Prioriser la tracklist Spotify si disponible, sinon utiliser Discogs
+
+            if spotify_data and spotify_data.get('tracks'):
+
+                clean_tracklist = spotify_data['tracks']
+
+                print(f"   ✅ Tracklist récupérée depuis Spotify ({len(clean_tracklist)} pistes)")
+
+            else:
+
+                clean_tracklist = [t.title for t in album.tracklist if t.position]
+
+                print(f"   ✅ Tracklist récupérée depuis Discogs ({len(clean_tracklist)} pistes)")
 
             return {
 

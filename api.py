@@ -392,3 +392,139 @@ async def toggle_focus_track(album_id: str, track_index: int):
     except Exception as e:
         print(f"❌ Erreur lors du toggle focus track : {e}")
         raise HTTPException(status_code=500, detail=f"Erreur lors du toggle : {str(e)}")
+
+@app.post("/admin/refetch-tracks")
+async def refetch_tracks():
+    """
+    Endpoint admin pour récupérer les tracklists manquantes depuis Spotify.
+    Parcourt tous les albums avec tracklist vide/null et met à jour depuis Spotify.
+    """
+    try:
+        # 1. Récupérer tous les albums avec tracklist vide ou null
+        response = supabase.table("albums").select("id, artist, title, spotify_url, tracklist").execute()
+        
+        if not response.data:
+            return {
+                "processed": 0,
+                "updated": 0,
+                "failed": 0,
+                "details": []
+            }
+        
+        # Filtrer les albums sans tracklist ou avec tracklist vide
+        albums_to_update = [
+            album for album in response.data
+            if not album.get('tracklist') or len(album.get('tracklist', [])) == 0
+        ]
+        
+        if not albums_to_update:
+            return {
+                "processed": 0,
+                "updated": 0,
+                "failed": 0,
+                "message": "Aucun album sans tracklist trouvé",
+                "details": []
+            }
+        
+        print(f"🔄 Début du refetch pour {len(albums_to_update)} album(s)...")
+        
+        updated = 0
+        failed = 0
+        details = []
+        
+        # 2. Pour chaque album, récupérer la tracklist depuis Spotify
+        for album in albums_to_update:
+            album_id = album.get('id')
+            artist = album.get('artist', 'Unknown')
+            title = album.get('title', 'Unknown')
+            spotify_url = album.get('spotify_url')
+            
+            try:
+                # Vérifier si spotify_url existe
+                if not spotify_url:
+                    details.append({
+                        "album_id": album_id,
+                        "artist": artist,
+                        "title": title,
+                        "status": "skipped",
+                        "reason": "Pas de spotify_url"
+                    })
+                    continue
+                
+                # Extraire l'album_id Spotify depuis l'URL
+                # Format: https://open.spotify.com/album/{album_id}
+                try:
+                    spotify_album_id = spotify_url.split('/album/')[1].split('?')[0].split('/')[0]
+                except (IndexError, AttributeError):
+                    details.append({
+                        "album_id": album_id,
+                        "artist": artist,
+                        "title": title,
+                        "status": "failed",
+                        "reason": "Impossible d'extraire l'ID Spotify de l'URL"
+                    })
+                    failed += 1
+                    continue
+                
+                # Récupérer les tracks depuis Spotify
+                if not kissa.sp:
+                    details.append({
+                        "album_id": album_id,
+                        "artist": artist,
+                        "title": title,
+                        "status": "failed",
+                        "reason": "Client Spotify non disponible"
+                    })
+                    failed += 1
+                    continue
+                
+                tracks = kissa._fetch_spotify_tracks(spotify_album_id)
+                
+                if tracks and len(tracks) > 0:
+                    # Mettre à jour la BDD
+                    supabase.table("albums").update({
+                        "tracklist": tracks
+                    }).eq("id", album_id).execute()
+                    
+                    updated += 1
+                    details.append({
+                        "album_id": album_id,
+                        "artist": artist,
+                        "title": title,
+                        "status": "updated",
+                        "tracks_count": len(tracks)
+                    })
+                    print(f"   ✅ {artist} - {title} : {len(tracks)} pistes récupérées")
+                else:
+                    details.append({
+                        "album_id": album_id,
+                        "artist": artist,
+                        "title": title,
+                        "status": "failed",
+                        "reason": "Aucune piste récupérée depuis Spotify"
+                    })
+                    failed += 1
+                    
+            except Exception as e:
+                print(f"   ❌ Erreur pour {artist} - {title} : {e}")
+                details.append({
+                    "album_id": album_id,
+                    "artist": artist,
+                    "title": title,
+                    "status": "failed",
+                    "reason": str(e)
+                })
+                failed += 1
+        
+        print(f"✅ Refetch terminé : {updated} mis à jour, {failed} échecs")
+        
+        return {
+            "processed": len(albums_to_update),
+            "updated": updated,
+            "failed": failed,
+            "details": details
+        }
+        
+    except Exception as e:
+        print(f"❌ Erreur lors du refetch des tracklists : {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors du refetch : {str(e)}")
