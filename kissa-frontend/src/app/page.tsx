@@ -4,10 +4,11 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock, Sparkles, MapPin } from "lucide-react";
 
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
 
 import { useHaptic } from "@/hooks/useHaptic";
 import { useKissaSound } from "@/hooks/useKissaSound";
+import { useRemoteControl } from "@/hooks/useRemoteControl";
 import { SoundToggle } from "@/components/SoundToggle";
 import { AlbumDetailView } from "@/components/AlbumDetailView";
 import { FilterBar } from "@/components/FilterBar";
@@ -171,19 +172,6 @@ export default function Home() {
   // Configuration de l'URL de l'API (utilise NEXT_PUBLIC_API_URL en production, localhost en dev)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-  // Initialisation du client Supabase
-  const supabase = useMemo(() => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
-    
-    if (!supabaseUrl || !supabaseKey) {
-      console.error("⚠️ NEXT_PUBLIC_SUPABASE_URL ou NEXT_PUBLIC_SUPABASE_KEY manquant");
-      return null;
-    }
-    
-    return createClient(supabaseUrl, supabaseKey);
-  }, []);
-
   const [allAlbums, setAllAlbums] = useState<Album[]>([]);
   const [filteredAlbums, setFilteredAlbums] = useState<Album[]>([]);
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(true);
@@ -249,6 +237,18 @@ export default function Home() {
 
   // Sound design hook
   const sounds = useKissaSound();
+
+  // Fonction pour gérer la réception des commandes Remote Control
+  const handleRemoteOpen = useCallback((albumId: string | number) => {
+    const album = allAlbums.find(a => a.id === albumId.toString());
+    if (album) {
+      setSelectedAlbum(album);
+      setSuccessToast("Remote Command Received 📱");
+    }
+  }, [allAlbums]);
+
+  // Hook Remote Control
+  const { broadcastSelection } = useRemoteControl(handleRemoteOpen);
 
   // Déclaration de fetchLibrary avec useCallback AVANT le useEffect
   const fetchLibrary = useCallback(async () => {
@@ -960,6 +960,8 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                       // Sur mobile uniquement : ouvrir la modale
                       if (window.innerWidth < 768) {
                         setSelectedAlbum(album);
+                        // Émettre la sélection pour Remote Control
+                        broadcastSelection(album.id);
                       }
                     }}
                     className={`w-full h-full object-cover transition-transform duration-500 ease-out md:relative md:z-10 md:group-hover:-translate-x-full group-hover:scale-110 md:group-hover:scale-100 cursor-pointer md:cursor-default touch-manipulation ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
@@ -998,6 +1000,8 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedAlbum(album);
+                            // Émettre la sélection pour Remote Control
+                            broadcastSelection(album.id);
                           }} 
                           className="text-neutral-700 hover:text-blue-400 transition-colors bg-black/50 p-1 rounded"
                           title="Éditer"
