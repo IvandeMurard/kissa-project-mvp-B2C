@@ -10,6 +10,7 @@ import { useHaptic } from "@/hooks/useHaptic";
 import { useKissaSound } from "@/hooks/useKissaSound";
 import { SoundToggle } from "@/components/SoundToggle";
 import { AlbumDetailView } from "@/components/AlbumDetailView";
+import { FilterBar } from "@/components/FilterBar";
 
 // --- CONSTANTS ---
 const MOOD_OPTIONS = [
@@ -112,6 +113,7 @@ export default function Home() {
   const [sortOption, setSortOption] = useState<"recent" | "artist" | "year" | "location">("recent");
 
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
 
   const [availableGenres, setAvailableGenres] = useState<string[]>([]);
 
@@ -578,7 +580,7 @@ export default function Home() {
 
   // Logique de filtrage et tri
   useEffect(() => {
-    console.log("🔄 useEffect de filtrage déclenché, allAlbums:", allAlbums.length, "searchQuery:", searchQuery, "selectedGenre:", selectedGenre);
+    console.log("🔄 useEffect de filtrage déclenché, allAlbums:", allAlbums.length, "searchQuery:", searchQuery, "selectedGenre:", selectedGenre, "selectedMood:", selectedMood);
     
     let filtered = [...allAlbums];
 
@@ -597,6 +599,14 @@ export default function Home() {
     if (selectedGenre) {
       filtered = filtered.filter((album) => album.details.genre.includes(selectedGenre));
       console.log(`🎵 Filtrage par genre "${selectedGenre}": ${filtered.length} résultat(s)`);
+    }
+
+    // Filtrage par mood (couleur)
+    if (selectedMood) {
+      filtered = filtered.filter((album) => 
+        album.mood_colors && album.mood_colors.includes(selectedMood)
+      );
+      console.log(`🎨 Filtrage par mood "${selectedMood}": ${filtered.length} résultat(s)`);
     }
 
     // Tri
@@ -625,7 +635,7 @@ export default function Home() {
 
     console.log(`✅ Albums filtrés: ${filtered.length} sur ${allAlbums.length} total`);
     setFilteredAlbums(filtered);
-  }, [allAlbums, searchQuery, selectedGenre, sortOption]);
+  }, [allAlbums, searchQuery, selectedGenre, selectedMood, sortOption]);
 
   useEffect(() => {
     if (!successToast) return;
@@ -734,15 +744,21 @@ export default function Home() {
       {/* VUE SHELF */}
       {currentView === "SHELF" && (
         <>
-          {/* FILTRES GENRES */}
-          {availableGenres.length > 0 && (
-            <div className="px-6 py-4 flex gap-2 overflow-x-auto scrollbar-hide">
-              <button onClick={() => setSelectedGenre(null)} className={`amp-label text-sm font-semibold px-3 py-1 rounded-sm transition-all duration-300 ease-in-out ${!selectedGenre ? 'amp-button-active font-bold' : 'text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'}`}>ALL</button>
-              {availableGenres.map(g => (
-                <button key={g} onClick={() => { sounds.playSwitch(); setSelectedGenre(selectedGenre === g ? null : g); }} className={`amp-label text-sm font-semibold uppercase tracking-wider px-3 py-1 rounded-sm transition-all duration-300 ease-in-out ${selectedGenre === g ? 'amp-button-active font-bold' : 'text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'}`}>{g}</button>
-              ))}
-            </div>
-          )}
+          {/* FILTRES GENRES ET MOODS */}
+          <FilterBar
+            availableGenres={availableGenres}
+            selectedGenre={selectedGenre}
+            onGenreChange={(genre) => {
+              sounds.playSwitch();
+              setSelectedGenre(genre);
+            }}
+            selectedMood={selectedMood}
+            onMoodChange={(mood) => {
+              sounds.playSwitch();
+              setSelectedMood(mood);
+            }}
+            sounds={sounds}
+          />
 
           {/* BARRE D'OUTILS */}
           <div className="px-6 py-4 border-b border-white/5">
@@ -765,7 +781,7 @@ export default function Home() {
           </div>
 
           {/* GRILLE D'ALBUMS */}
-          <div className="px-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-4">
+          <div className="px-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-4 transition-all duration-300">
             {isLoadingLibrary ? (
               // Skeletons pendant le chargement
               Array.from({ length: 6 }).map((_, i) => (
@@ -837,7 +853,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
               </div>
             ) : (
               filteredAlbums.map((album) => (
-                <div key={album.id} className="group relative aspect-square bg-[#111] overflow-hidden cursor-default border border-white/5">
+                <div key={album.id} className="group relative aspect-square bg-[#111] overflow-hidden cursor-default border border-white/5 animate-in fade-in duration-300">
                   <img 
                     src={album.display.cover_image || "/placeholder.png"} 
                     alt={album.display.title}
