@@ -535,7 +535,7 @@ export function AlbumDetailView({
           /* Onglet SLEEVE NOTES - Layout en deux zones : scrollable (haut) et fixe (bas) */
           <div className="flex flex-col h-full min-h-0 relative overflow-hidden transition-opacity duration-300">
             {/* Zone 1 : Contenu scrollable */}
-            <div className="flex-1 overflow-y-auto p-1 pb-4 scrollbar-hide">
+            <div className="flex-1 overflow-y-auto p-1 pb-4">
               {/* Section Acquisition Log */}
               <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
                 <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
@@ -665,10 +665,10 @@ export function AlbumDetailView({
                           }}
                         />
                         
-                        {/* Tooltip - Invisible sauf au hover du groupe parent */}
+                        {/* Tooltip - Caché sauf au hover du groupe parent */}
                         <div className={`absolute bottom-full mb-3 
                                         ${index === 0 ? 'left-0' : index === moodOptions.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'}
-                                        invisible opacity-0 group-hover:visible group-hover:opacity-100 
+                                        hidden opacity-0 group-hover:block group-hover:opacity-100 
                                         transition-all duration-200 ease-in-out z-50 pointer-events-none
                                         bg-zinc-800 text-zinc-200 text-[10px] px-2 py-1 rounded border border-zinc-700 whitespace-nowrap`}>
                           {mood.label}
