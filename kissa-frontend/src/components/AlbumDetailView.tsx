@@ -648,8 +648,8 @@ export function AlbumDetailView({
             </div>
           ) : activeTab === "vibe" ? (
             /* Onglet VIBE - Gommettes centrées */
-            <div className="flex items-center justify-center min-h-[400px]">
-              <div className="flex flex-wrap justify-center gap-6 max-w-2xl">
+            <div className="flex items-start justify-center min-h-[400px] pt-16">
+              <div className="flex flex-wrap justify-center gap-4 max-w-2xl">
                 {moodOptions.map((mood) => {
                   const isSelected = optimisticMoodColors.includes(mood.color);
                   return (
@@ -673,14 +673,14 @@ export function AlbumDetailView({
                         setHoveredMoodVibe(null);
                         setTooltipPositionVibe(null);
                       }}
-                      className="group relative flex items-center justify-center w-16 h-16 outline-none cursor-pointer"
+                      className="group relative flex items-center justify-center w-12 h-12 outline-none cursor-pointer"
                     >
-                      {/* Cercle de couleur - Plus gros dans VIBE */}
+                      {/* Cercle de couleur - Affiné */}
                       <div 
-                        className={`w-12 h-12 rounded-full transition-transform duration-200 group-hover:scale-110 ${
+                        className={`w-8 h-8 rounded-full transition-all duration-200 group-hover:scale-105 ${
                           isSelected 
-                            ? 'ring-2 ring-white ring-offset-2 ring-offset-black' 
-                            : 'opacity-60 hover:opacity-100'
+                            ? 'ring-1 ring-white ring-offset-1 ring-offset-black' 
+                            : 'opacity-70 hover:opacity-100'
                         }`}
                         style={{ backgroundColor: mood.color }}
                       />
