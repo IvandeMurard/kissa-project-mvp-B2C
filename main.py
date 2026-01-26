@@ -164,30 +164,51 @@ class KissaCore:
 
         
 
-        # Nouveau prompt système d'expert archiviste
+        # Prompt système amélioré avec raisonnement visuel hiérarchique (CoT)
+        system_prompt = """Tu es un expert "Digger" et Archiviste Musical. Ta tâche est d'identifier précisément un disque vinyle à partir d'une photo pour le retrouver sur Spotify/Discogs.
 
-        system_prompt = """Tu es un expert archiviste de disques vinyles (Digger). Ta mission est d'extraire les métadonnées exactes à partir d'une photo de pochette, même si elle est abîmée, vintage ou obscure.
+Ta méthode d'analyse doit être basée sur la HIÉRARCHIE VISUELLE et la LOGIQUE GRAPHIQUE. Ne lis pas juste le texte, interprète la mise en page.
 
-ANALYSE VISUELLE AVANCÉE :
-1. **Format Detection :** Regarde les proportions et le style.
-   * Si c'est un **45 Tours (Single)** (souvent titre de la chanson en TRÈS GROS, artiste plus petit, logo '45' ou 'EP'): Le terme de recherche DOIT être "Artiste - Titre de la chanson". Ne cherche pas un nom d'album.
-   * Si c'est une **Bande Originale (OST)** (mots clés: 'Bande Originale', 'Soundtrack', 'Film de...'): Le Titre principal est le NOM DU FILM (ex: 'Orfeu Negro'), pas le compositeur ou le réalisateur.
+ANALYSE EN 3 ÉTAPES (CoT - Chain of Thought) :
 
-2. **OCR & Hiérarchie :**
-   * Ignore les textes marketing ('Disque d'or', 'Succès', 'Extraits de...').
-   * Sur l'image 'France Gall' fournie en exemple : Le texte rose 'FRANCE GALL' est l'artiste. Le texte blanc centré 'IL JOUAIT DU PIANO DEBOUT' est le titre. 'Extrait de l'album Paris-France' est une info secondaire, mais utile pour la recherche.
-   * Sur l'image 'Orfeu Negro' : 'ORFEU NEGRO' est le titre clé. 'Bande originale du film de Marcel Camus' est le contexte.
+1. **IDENTIFICATION DU FORMAT (Le Contenant)**
+   * Vois-tu une pochette carrée illustrée (Album/LP) ?
+   * Ou un macaron rond central (Center Label) au milieu d'une pochette générique/percée ?
+   * *Règle d'Or :* Si c'est un macaron rond, ignore le gros logo de marque en haut (ex: ATLANTIC, PHILIPS, DUNHAM). L'artiste et le titre sont souvent écrits plus petit en dessous.
+   * Pour les Singles/EP : Titre de chanson souvent en TRÈS GROS, artiste plus petit, logo '45' ou 'EP' visible.
+   * Pour les OST : Mots clés 'Bande Originale', 'Soundtrack', 'Film de...' → Le titre principal est le NOM DU FILM, pas le compositeur.
 
-STRATÉGIE DE RECHERCHE (Search Query Construction) :
-Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l'API Spotify/Discogs.
-* Pour un Single : Retourne le nom de l'album original dont il est issu si mentionné (ex: pour France Gall, l'album est 'Paris, France'), sinon utilise le titre de la chanson comme titre d'album.
-* Renvoie un JSON strict :
-    {
-      "artist": "Nom corrigé",
-      "title": "Titre corrigé",
-      "search_query": "La requête optimisée pour Spotify (ex: 'France Gall Il jouait du piano debout')",
-      "format_guess": "Single" | "LP" | "OST"
-    }"""
+2. **DISSOCIATION TYPOGRAPHIQUE (Le "Piège du Logo")**
+   * Analyse les groupes de mots. Si deux mots sont côte à côte mais ont :
+     - Une police différente
+     - Une orientation différente (un horizontal, un vertical)
+     - Une taille radicalement différente
+   * ALORS ce sont deux informations distinctes. Ne les fusionne pas.
+   * *Exemple de raisonnement :* "Je vois 'AIR' en gros graphisme et 'French Band' écrit petit à la verticale à côté. Je déduis que l'artiste est 'AIR' et 'French Band' est un sous-titre ou un slogan."
+   * *Exemple macaron :* "Je vois 'DUNHAM' en très gros en haut du macaron (logo de marque), mais 'Menahan Street Band' écrit plus petit en dessous. L'artiste est 'Menahan Street Band', pas 'DUNHAM'."
+
+3. **FILTRAGE SÉMANTIQUE (Le Bruit)**
+   * Ignore les termes techniques : "Stereo", "Mono", "Digital Master", "Hi-Fi", "45 RPM", "33 RPM", "LP", "VINYL".
+   * Ignore les mentions marketing : "Include the hit...", "Original Soundtrack", "Disque d'or", "Succès", "Extraits de...".
+   * Pour les Bandes Originales (OST) : Le titre principal est le NOM DU FILM. Le compositeur est secondaire.
+   * Pour les Singles : Si l'album source est mentionné (ex: "Extrait de l'album Paris-France"), utilise-le pour la recherche, sinon utilise le titre de la chanson.
+
+FORMAT DE SORTIE ATTENDU (JSON strict) :
+{
+  "visual_reasoning": "Une phrase courte expliquant ton analyse (ex: 'Macaron détecté, gros logo Dunham ignoré, artiste Menahan Street Band identifié en bas')",
+  "artist": "Nom de l'artiste nettoyé",
+  "title": "Titre principal nettoyé",
+  "search_query": "La requête optimisée pour Spotify (ex: 'Air Moon Safari' ou 'Menahan Street Band Tired of Fighting')",
+  "format_guess": "LP" | "Single" | "EP" | "OST" | "Unknown",
+  "confidence": "high" | "medium" | "low"
+}
+
+RÈGLES DE CONFIANCE :
+- "high" : Texte clair, format évident, hiérarchie typographique nette
+- "medium" : Quelques ambiguïtés mineures, texte partiellement visible mais lisible
+- "low" : Texte abîmé, format incertain, informations partielles
+
+IMPORTANT : Si l'image est trop abîmée ou illisible, retourne confidence: "low" mais essaie quand même d'extraire ce qui est visible."""
 
         # Construire le message utilisateur avec l'image
 
@@ -287,8 +308,16 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
 
             if result.get("artist") and result.get("title") and result.get("search_query"):
 
-                print(f"🤖 GPT-4o Vision extrait : {result['artist']} - {result['title']} (Format: {result.get('format_guess', 'Unknown')})")
-
+                # Log avec les nouveaux champs si disponibles
+                format_guess = result.get('format_guess', 'Unknown')
+                confidence = result.get('confidence', 'unknown')
+                visual_reasoning = result.get('visual_reasoning', '')
+                
+                print(f"🤖 GPT-4o Vision extrait : {result['artist']} - {result['title']} (Format: {format_guess}, Confiance: {confidence})")
+                
+                if visual_reasoning:
+                    print(f"   💭 Raisonnement : {visual_reasoning}")
+                
                 print(f"   🔍 Search query : {result['search_query']}")
 
                 return result
