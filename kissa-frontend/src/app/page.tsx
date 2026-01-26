@@ -903,7 +903,6 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                       album={album}
                       onUpdateAlbum={(updated) => {
                         setAllAlbums(prev => prev.map(a => a.id === updated.id ? updated : a));
-                        fetchLibrary();
                       }}
                       onPlay={() => handlePlay(album)}
                       showActions={false}
@@ -1123,7 +1122,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                 album={selectedAlbum}
                 onUpdateAlbum={(updated) => {
                   setSelectedAlbum(updated);
-                  fetchLibrary();
+                  setAllAlbums(prev => prev.map(a => a.id === updated.id ? updated : a));
                 }}
                 onDelete={handleDeleteFromModal}
                 showActions={true}
