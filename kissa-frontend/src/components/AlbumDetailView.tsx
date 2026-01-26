@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Loader2, Sparkles, ExternalLink, Trash2, Play } from "lucide-react";
+import { useHaptic } from "@/hooks/useHaptic";
 
 const MOOD_OPTIONS = [
   { color: '#ef4444', label: 'Peak Time / Banger', shortLabel: 'Peak' },
@@ -49,6 +50,7 @@ export function AlbumDetailView({
   compact = false,
   onTabChange,
 }: AlbumDetailViewProps) {
+  const haptic = useHaptic();
   const [activeTab, setActiveTab] = useState<"tracklist" | "sleeve" | "story">("tracklist");
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
   const [isSavingPurchaseData, setIsSavingPurchaseData] = useState(false);
@@ -661,8 +663,13 @@ export function AlbumDetailView({
           )}
           {isManageMode && onDelete && (
             <button 
-              onClick={onDelete}
-              className="amp-label bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-sm font-semibold transition-colors flex items-center justify-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                haptic.heavy();
+                onDelete();
+              }}
+              className="amp-label bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-sm font-semibold transition-colors flex items-center justify-center gap-2 touch-manipulation"
             >
               <Trash2 className="w-4 h-4" />
               DISCARD

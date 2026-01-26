@@ -894,7 +894,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                         </button>
                         <button 
                           onClick={(e) => handleDelete(album.id, e)} 
-                          className="text-neutral-700 hover:text-red-500 transition-colors bg-black/50 p-1 rounded" 
+                          className="text-neutral-700 hover:text-red-500 transition-colors bg-black/50 p-1 rounded touch-manipulation" 
                           title="DISCARD"
                         >
                           <Trash2 className="w-3 h-3" />
