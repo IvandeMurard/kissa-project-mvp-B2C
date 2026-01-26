@@ -1217,7 +1217,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
             </div>
 
             {/* Section Texte avec AlbumDetailView */}
-            <div className={`flex flex-col flex-1 relative transition-all duration-300 max-h-full overflow-hidden ${
+            <div className={`flex flex-col flex-1 relative transition-all duration-300 h-full min-h-0 overflow-hidden ${
               modalActiveTab === "sleeve" ? "md:w-3/5" : "md:w-1/2"
             }`}>
               {/* Bouton Fermer */}
