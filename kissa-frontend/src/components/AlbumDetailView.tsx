@@ -471,7 +471,7 @@ export function AlbumDetailView({
       </div>
 
       {/* Contenu des onglets */}
-      <div className={`flex-1 ${compact ? '' : 'overflow-y-auto'}`}>
+      <div className={`flex-1 ${compact ? '' : 'overflow-hidden'} flex flex-col`}>
         {activeTab === "tracklist" ? (
           /* Onglet TRACKLIST */
           localAlbum.details.tracklist && localAlbum.details.tracklist.length > 0 ? (
@@ -526,145 +526,151 @@ export function AlbumDetailView({
             </div>
           )
         ) : activeTab === "sleeve" ? (
-          /* Onglet SLEEVE NOTES - Acquisition Log uniquement */
-          <div className={`${compact ? "space-y-3 pb-24" : "space-y-6 pb-32"} transition-opacity duration-300`}>
-            {/* Section Acquisition Log */}
-            <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
-              <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
-                Acquisition Log
-              </h4>
-              <div className={compact ? "space-y-2" : "space-y-3"}>
-                <div>
-                  <label className={`text-xs text-zinc-500 mb-1 block`}>Lieu</label>
-                  <input
-                    type="text"
-                    placeholder="Acquired at..."
-                    value={localAlbum.purchase_data?.location || ""}
-                    onBlur={(e) => {
-                      if (e.target.value !== localAlbum.purchase_data?.location) {
-                        handleUpdatePurchaseData(localAlbum.id, {
-                          location: e.target.value || undefined,
-                        });
-                      }
-                    }}
-                    className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
-                  />
-                </div>
-                <div>
-                  <label className={`text-xs text-zinc-500 mb-1 block`}>Date</label>
-                  <input
-                    type="text"
-                    placeholder="Date"
-                    value={localAlbum.purchase_data?.date || ""}
-                    onBlur={(e) => {
-                      if (e.target.value !== localAlbum.purchase_data?.date) {
-                        handleUpdatePurchaseData(localAlbum.id, {
-                          date: e.target.value || undefined,
-                        });
-                      }
-                    }}
-                    className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
-                  />
-                </div>
-                <div>
-                  <label className={`text-xs text-zinc-500 mb-1 block`}>Prix</label>
-                  <input
-                    type="number"
-                    placeholder="Price paid"
-                    value={localAlbum.purchase_data?.price || ""}
-                    onBlur={(e) => {
-                      const price = e.target.value ? parseFloat(e.target.value) : undefined;
-                      if (price !== localAlbum.purchase_data?.price) {
-                        handleUpdatePurchaseData(localAlbum.id, {
-                          price: price,
-                        });
-                      }
-                    }}
-                    className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
-                  />
-                </div>
-                <div>
-                  <label className={`text-xs text-zinc-500 mb-1 block`}>Condition</label>
-                  <input
-                    type="text"
-                    placeholder="Condition"
-                    value={localAlbum.purchase_data?.condition || ""}
-                    onBlur={(e) => {
-                      if (e.target.value !== localAlbum.purchase_data?.condition) {
-                        handleUpdatePurchaseData(localAlbum.id, {
-                          condition: e.target.value || undefined,
-                        });
-                      }
-                    }}
-                    className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
-                  />
-                </div>
-                <div>
-                  <label className={`text-xs text-zinc-500 mb-1 block amp-label`}>LOCATION / SHELF</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Box A, Top Shelf..."
-                    value={localAlbum.storage_location ?? ""}
-                    onBlur={(e) => {
-                      const val = e.target.value.trim();
-                      const prev = (localAlbum.storage_location ?? "").trim();
-                      if (val !== prev) {
-                        handleUpdatePurchaseData(localAlbum.id, {
-                          storage_location: val ? val : "",
-                        });
-                      }
-                    }}
-                    className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600 amp-label uppercase"
-                    style={{ fontFamily: "var(--font-technical)" }}
-                  />
+          /* Onglet SLEEVE NOTES - Layout en deux zones : scrollable (haut) et fixe (bas) */
+          <div className="flex flex-col h-full relative overflow-hidden transition-opacity duration-300">
+            {/* Zone 1 : Contenu scrollable */}
+            <div className="flex-1 overflow-y-auto p-1 pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+              {/* Section Acquisition Log */}
+              <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
+                <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
+                  Acquisition Log
+                </h4>
+                <div className={compact ? "space-y-2" : "space-y-3"}>
+                  <div>
+                    <label className={`text-xs text-zinc-500 mb-1 block`}>Lieu</label>
+                    <input
+                      type="text"
+                      placeholder="Acquired at..."
+                      value={localAlbum.purchase_data?.location || ""}
+                      onBlur={(e) => {
+                        if (e.target.value !== localAlbum.purchase_data?.location) {
+                          handleUpdatePurchaseData(localAlbum.id, {
+                            location: e.target.value || undefined,
+                          });
+                        }
+                      }}
+                      className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
+                    />
+                  </div>
+                  <div>
+                    <label className={`text-xs text-zinc-500 mb-1 block`}>Date</label>
+                    <input
+                      type="text"
+                      placeholder="Date"
+                      value={localAlbum.purchase_data?.date || ""}
+                      onBlur={(e) => {
+                        if (e.target.value !== localAlbum.purchase_data?.date) {
+                          handleUpdatePurchaseData(localAlbum.id, {
+                            date: e.target.value || undefined,
+                          });
+                        }
+                      }}
+                      className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
+                    />
+                  </div>
+                  <div>
+                    <label className={`text-xs text-zinc-500 mb-1 block`}>Prix</label>
+                    <input
+                      type="number"
+                      placeholder="Price paid"
+                      value={localAlbum.purchase_data?.price || ""}
+                      onBlur={(e) => {
+                        const price = e.target.value ? parseFloat(e.target.value) : undefined;
+                        if (price !== localAlbum.purchase_data?.price) {
+                          handleUpdatePurchaseData(localAlbum.id, {
+                            price: price,
+                          });
+                        }
+                      }}
+                      className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
+                    />
+                  </div>
+                  <div>
+                    <label className={`text-xs text-zinc-500 mb-1 block`}>Condition</label>
+                    <input
+                      type="text"
+                      placeholder="Condition"
+                      value={localAlbum.purchase_data?.condition || ""}
+                      onBlur={(e) => {
+                        if (e.target.value !== localAlbum.purchase_data?.condition) {
+                          handleUpdatePurchaseData(localAlbum.id, {
+                            condition: e.target.value || undefined,
+                          });
+                        }
+                      }}
+                      className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
+                    />
+                  </div>
+                  <div>
+                    <label className={`text-xs text-zinc-500 mb-1 block amp-label`}>LOCATION / SHELF</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Box A, Top Shelf..."
+                      value={localAlbum.storage_location ?? ""}
+                      onBlur={(e) => {
+                        const val = e.target.value.trim();
+                        const prev = (localAlbum.storage_location ?? "").trim();
+                        if (val !== prev) {
+                          handleUpdatePurchaseData(localAlbum.id, {
+                            storage_location: val ? val : "",
+                          });
+                        }
+                      }}
+                      className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600 amp-label uppercase"
+                      style={{ fontFamily: "var(--font-technical)" }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Section VIBE / ENERGY */}
-            <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
-              <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
-                VIBE / ENERGY
-              </h4>
-              <div className="flex flex-wrap gap-3 overflow-visible">
-                {moodOptions.map((mood, index) => {
-                  const isSelected = optimisticMoodColors.includes(mood.color);
-                  
-                  return (
-                    <button
-                      key={mood.color}
-                      onClick={() => {
-                        const newColors = isSelected
-                          ? optimisticMoodColors.filter(c => c !== mood.color)
-                          : [...optimisticMoodColors, mood.color];
-                        handleUpdateMoodColors(localAlbum.id, newColors);
-                      }}
-                      className="group relative cursor-pointer hover:z-[100]"
-                    >
-                      {/* Cercle de couleur */}
-                      <div
-                        className={`${compact ? 'w-5 h-5' : 'w-6 h-6'} rounded-full transition-all duration-200 ${
-                          isSelected
-                            ? 'ring-2 ring-white ring-offset-2 ring-offset-zinc-900'
-                            : 'opacity-80 hover:opacity-100 hover:scale-110'
-                        }`}
-                        style={{
-                          backgroundColor: mood.color,
-                          border: mood.color === '#171717' ? '1px solid white' : 'none',
+            {/* Zone 2 : Footer fixe */}
+            <div className="flex-shrink-0 pt-4 mt-auto border-t border-white/5 bg-black/50 backdrop-blur-sm z-20">
+              {/* Section VIBE / ENERGY */}
+              <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
+                <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
+                  VIBE / ENERGY
+                </h4>
+                <div className="flex flex-wrap gap-3 overflow-visible">
+                  {moodOptions.map((mood, index) => {
+                    const isSelected = optimisticMoodColors.includes(mood.color);
+                    
+                    return (
+                      <button
+                        key={mood.color}
+                        onClick={() => {
+                          const newColors = isSelected
+                            ? optimisticMoodColors.filter(c => c !== mood.color)
+                            : [...optimisticMoodColors, mood.color];
+                          handleUpdateMoodColors(localAlbum.id, newColors);
                         }}
-                      />
-                      
-                      {/* Tooltip - Invisible sauf au hover du groupe parent */}
-                      <div className={`absolute bottom-full mb-2 
-                                      ${index === 0 ? 'left-0' : index > 3 ? 'right-0' : 'left-1/2 -translate-x-1/2'}
-                                      invisible opacity-0 group-hover:visible group-hover:opacity-100 
-                                      transition-all duration-200 ease-in-out z-50 pointer-events-none
-                                      bg-zinc-800 text-zinc-200 text-[10px] px-2 py-1 rounded border border-zinc-700 whitespace-nowrap`}>
-                        {mood.label}
-                      </div>
-                    </button>
-                  );
-                })}
+                        className="group relative cursor-pointer hover:z-[100]"
+                      >
+                        {/* Cercle de couleur */}
+                        <div
+                          className={`${compact ? 'w-5 h-5' : 'w-6 h-6'} rounded-full transition-all duration-200 ${
+                            isSelected
+                              ? 'ring-2 ring-white ring-offset-2 ring-offset-zinc-900'
+                              : 'opacity-80 hover:opacity-100 hover:scale-110'
+                          }`}
+                          style={{
+                            backgroundColor: mood.color,
+                            border: mood.color === '#171717' ? '1px solid white' : 'none',
+                          }}
+                        />
+                        
+                        {/* Tooltip - Invisible sauf au hover du groupe parent */}
+                        <div className={`absolute bottom-full mb-3 
+                                        ${index === 0 ? 'left-0' : index === moodOptions.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'}
+                                        invisible opacity-0 group-hover:visible group-hover:opacity-100 
+                                        transition-all duration-200 ease-in-out z-50 pointer-events-none
+                                        bg-zinc-800 text-zinc-200 text-[10px] px-2 py-1 rounded border border-zinc-700 whitespace-nowrap`}>
+                          {mood.label}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
