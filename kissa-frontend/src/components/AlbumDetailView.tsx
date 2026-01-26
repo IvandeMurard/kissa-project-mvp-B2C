@@ -471,7 +471,13 @@ export function AlbumDetailView({
       </div>
 
       {/* Contenu des onglets */}
-      <div className={`flex-1 ${compact ? '' : 'overflow-hidden'} flex flex-col`}>
+      <div className={`flex-1 ${
+        activeTab === "sleeve" 
+          ? "overflow-hidden flex flex-col" 
+          : compact 
+            ? "" 
+            : "overflow-y-auto"
+      }`}>
         {activeTab === "tracklist" ? (
           /* Onglet TRACKLIST */
           localAlbum.details.tracklist && localAlbum.details.tracklist.length > 0 ? (
