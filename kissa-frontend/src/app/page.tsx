@@ -13,12 +13,12 @@ import { AlbumDetailView } from "@/components/AlbumDetailView";
 
 // --- CONSTANTS ---
 const MOOD_OPTIONS = [
-  { color: '#ef4444', label: 'Peak Time / Banger' },
-  { color: '#eab308', label: 'Groove / Warm Up' },
-  { color: '#3b82f6', label: 'Deep / Mental' },
-  { color: '#a855f7', label: 'After / Hypnotic' },
-  { color: '#22c55e', label: 'Organic / Chill' },
-  { color: '#171717', label: 'Dark / Obscure' },
+  { color: '#ef4444', label: 'Peak Time / Banger', shortLabel: 'Peak' },
+  { color: '#eab308', label: 'Groove / Warm Up', shortLabel: 'Groove' },
+  { color: '#3b82f6', label: 'Deep / Mental', shortLabel: 'Deep' },
+  { color: '#a855f7', label: 'After / Hypnotic', shortLabel: 'After' },
+  { color: '#22c55e', label: 'Organic / Chill', shortLabel: 'Organic' },
+  { color: '#171717', label: 'Dark / Obscure', shortLabel: 'Dark' },
 ];
 
 // --- TYPES ---
@@ -863,7 +863,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                             backgroundColor: color,
                             border: color === '#171717' ? '1px solid white' : 'none',
                           }}
-                          title={MOOD_OPTIONS.find(c => c.color === color)?.label || ''}
+                          title={MOOD_OPTIONS.find(c => c.color === color)?.shortLabel || ''}
                         />
                       ))}
                     </div>

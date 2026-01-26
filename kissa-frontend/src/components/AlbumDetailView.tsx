@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import { Loader2, Sparkles, ExternalLink, Trash2, Play } from "lucide-react";
 
 const MOOD_OPTIONS = [
-  { color: '#ef4444', label: 'Peak Time / Banger' },
-  { color: '#eab308', label: 'Groove / Warm Up' },
-  { color: '#3b82f6', label: 'Deep / Mental' },
-  { color: '#a855f7', label: 'After / Hypnotic' },
-  { color: '#22c55e', label: 'Organic / Chill' },
-  { color: '#171717', label: 'Dark / Obscure' },
+  { color: '#ef4444', label: 'Peak Time / Banger', shortLabel: 'Peak' },
+  { color: '#eab308', label: 'Groove / Warm Up', shortLabel: 'Groove' },
+  { color: '#3b82f6', label: 'Deep / Mental', shortLabel: 'Deep' },
+  { color: '#a855f7', label: 'After / Hypnotic', shortLabel: 'After' },
+  { color: '#22c55e', label: 'Organic / Chill', shortLabel: 'Organic' },
+  { color: '#171717', label: 'Dark / Obscure', shortLabel: 'Dark' },
 ];
 
 interface Album {
@@ -538,9 +538,16 @@ export function AlbumDetailView({
               <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
                 VIBE / ENERGY
               </h4>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3 overflow-visible">
                 {MOOD_OPTIONS.map((mood, index) => {
                   const isSelected = optimisticMoodColors.includes(mood.color);
+                  // Logique de positionnement intelligent
+                  const getTooltipPosition = () => {
+                    if (index === 0) return 'left-0';
+                    if (index >= 4) return 'right-0';
+                    return 'left-1/2 -translate-x-1/2';
+                  };
+                  
                   return (
                     <button
                       key={mood.color}
@@ -565,15 +572,13 @@ export function AlbumDetailView({
                         }}
                       />
                       
-                      {/* Tooltip */}
+                      {/* Tooltip en dessous */}
                       <span
-                        className={`absolute bottom-full mb-2 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 whitespace-nowrap bg-black/90 text-white text-[10px] px-2 py-1 rounded shadow-lg border border-white/10 ${
-                          index > 2 ? 'right-0' : 'left-1/2 -translate-x-1/2'
-                        }`}
+                        className={`absolute top-full mt-2 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 whitespace-nowrap bg-black/90 text-white text-[10px] px-2 py-1 rounded shadow-lg border border-white/10 ${getTooltipPosition()}`}
                       >
-                        {mood.label}
-                        {/* Flèche */}
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-transparent border-t-black/90"></div>
+                        {mood.shortLabel}
+                        {/* Flèche pointant vers le haut */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-b-[4px] border-transparent border-b-black/90"></div>
                       </span>
                     </button>
                   );
