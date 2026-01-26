@@ -32,6 +32,16 @@ const MoodContext = createContext<MoodContextType | undefined>(undefined);
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
+// Fonction helper pour fetch avec timeout
+const fetchWithTimeout = (url: string, options: RequestInit = {}, timeout = 5000): Promise<Response> => {
+  return Promise.race([
+    fetch(url, options),
+    new Promise<Response>((_, reject) =>
+      setTimeout(() => reject(new Error('Timeout: API non accessible après 5 secondes')), timeout)
+    ),
+  ]);
+};
+
 // Fonction pour générer un shortLabel à partir d'un label
 function generateShortLabel(label: string): string {
   // Prendre les 2-3 premiers mots ou tronquer à 15 caractères
@@ -53,7 +63,8 @@ export function MoodProvider({ children }: { children: ReactNode }) {
     const fetchMoodConfig = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`${API_URL}/settings`);
+        console.log("🔄 Chargement de la config Mood depuis:", `${API_URL}/settings`);
+        const response = await fetchWithTimeout(`${API_URL}/settings`, {}, 5000);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -68,10 +79,12 @@ export function MoodProvider({ children }: { children: ReactNode }) {
           completeConfig[color] = config[color] || DEFAULT_MOOD_LABELS[color];
         });
         
+        console.log("✅ Config Mood chargée:", completeConfig);
         setMoodLabels(completeConfig);
       } catch (error) {
         console.error("❌ Erreur lors du chargement de la config Mood:", error);
-        // En cas d'erreur, utiliser les valeurs par défaut
+        // En cas d'erreur, utiliser les valeurs par défaut immédiatement
+        console.log("⚠️ Utilisation des valeurs par défaut");
         setMoodLabels(DEFAULT_MOOD_LABELS);
       } finally {
         setIsLoading(false);
@@ -92,13 +105,17 @@ export function MoodProvider({ children }: { children: ReactNode }) {
 
   // Fonction pour mettre à jour un label
   const updateMoodLabel = async (color: string, newLabel: string): Promise<void> => {
-    // Mise à jour optimiste
+    const previousLabels = { ...moodLabels }; // Sauvegarder l'état précédent
     const updatedLabels = { ...moodLabels, [color]: newLabel };
+    
+    console.log(`💾 Sauvegarde du label Mood: ${color} -> "${newLabel}"`);
+    
+    // Mise à jour optimiste
     setMoodLabels(updatedLabels);
 
     try {
-      // Sauvegarder sur le serveur
-      const response = await fetch(`${API_URL}/settings`, {
+      // Sauvegarder sur le serveur avec timeout
+      const response = await fetchWithTimeout(`${API_URL}/settings`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -106,7 +123,7 @@ export function MoodProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           mood_config: updatedLabels,
         }),
-      });
+      }, 5000);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -115,12 +132,18 @@ export function MoodProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       // Confirmer avec la réponse serveur
       if (data.mood_config) {
+        console.log("✅ Label Mood sauvegardé avec succès:", data.mood_config);
         setMoodLabels(data.mood_config);
+      } else {
+        // Si pas de mood_config dans la réponse, garder notre mise à jour optimiste
+        console.log("⚠️ Pas de mood_config dans la réponse, conservation de la mise à jour optimiste");
+        setMoodLabels(updatedLabels);
       }
     } catch (error) {
       console.error("❌ Erreur lors de la sauvegarde du label Mood:", error);
       // En cas d'erreur, restaurer l'état précédent
-      setMoodLabels(moodLabels);
+      console.log("🔄 Restauration de l'état précédent");
+      setMoodLabels(previousLabels);
       throw error;
     }
   };

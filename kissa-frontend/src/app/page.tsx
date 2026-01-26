@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock, Sparkles, MapPin } from "lucide-react";
 
@@ -60,15 +60,28 @@ function MoodConfigurationSection() {
   const { moodOptions, updateMoodLabel, isLoading } = useMoodContext();
   const [localLabels, setLocalLabels] = useState<Record<string, string>>({});
   const [savingColor, setSavingColor] = useState<string | null>(null);
+  const isInitializedRef = useRef(false);
 
   // Initialiser les labels locaux avec les valeurs du context
   useEffect(() => {
-    const labels: Record<string, string> = {};
+    // Ne réinitialiser que si c'est la première fois ou si les valeurs ont vraiment changé
+    const newLabels: Record<string, string> = {};
     moodOptions.forEach(mood => {
-      labels[mood.color] = mood.label;
+      newLabels[mood.color] = mood.label;
     });
-    setLocalLabels(labels);
-  }, [moodOptions]);
+    
+    // Comparer avec l'état actuel pour éviter les réinitialisations inutiles
+    const hasChanged = !isInitializedRef.current || Object.keys(newLabels).some(
+      color => localLabels[color] !== newLabels[color]
+    ) || Object.keys(localLabels).length === 0;
+    
+    if (hasChanged && savingColor === null) {
+      // Ne réinitialiser que si on n'est pas en train de sauvegarder
+      console.log("🔄 Réinitialisation de localLabels depuis moodOptions");
+      setLocalLabels(newLabels);
+      isInitializedRef.current = true;
+    }
+  }, [moodOptions, savingColor]);
 
   const handleLabelChange = (color: string, newLabel: string) => {
     setLocalLabels(prev => ({ ...prev, [color]: newLabel }));
@@ -76,18 +89,31 @@ function MoodConfigurationSection() {
 
   const handleSaveLabel = async (color: string) => {
     const newLabel = localLabels[color];
-    if (!newLabel || newLabel.trim() === '') return;
+    if (!newLabel || newLabel.trim() === '') {
+      console.log("⚠️ Label vide, restauration de la valeur précédente");
+      const originalLabel = moodOptions.find(m => m.color === color)?.label || '';
+      setLocalLabels(prev => ({ ...prev, [color]: originalLabel }));
+      return;
+    }
     
-    if (newLabel === moodOptions.find(m => m.color === color)?.label) {
+    const trimmedLabel = newLabel.trim();
+    const currentLabel = moodOptions.find(m => m.color === color)?.label;
+    
+    if (trimmedLabel === currentLabel) {
       // Pas de changement, pas besoin de sauvegarder
+      console.log(`ℹ️ Pas de changement pour ${color}, pas de sauvegarde nécessaire`);
       return;
     }
 
+    console.log(`💾 Début de la sauvegarde: ${color} -> "${trimmedLabel}"`);
     setSavingColor(color);
     try {
-      await updateMoodLabel(color, newLabel.trim());
+      await updateMoodLabel(color, trimmedLabel);
+      console.log(`✅ Sauvegarde réussie pour ${color}`);
+      // Attendre un court délai pour que le Context se mette à jour
+      await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
-      console.error("Erreur lors de la sauvegarde:", error);
+      console.error("❌ Erreur lors de la sauvegarde:", error);
       // Restaurer la valeur précédente en cas d'erreur
       const originalLabel = moodOptions.find(m => m.color === color)?.label || '';
       setLocalLabels(prev => ({ ...prev, [color]: originalLabel }));
