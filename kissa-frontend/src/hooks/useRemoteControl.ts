@@ -1,6 +1,14 @@
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
+// Types pour Supabase Realtime
+type ChannelStatus = 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR';
+type BroadcastPayload = {
+  payload: {
+    id: string | number;
+  };
+};
+
 export const useRemoteControl = (
   onRemoteSelect?: (albumId: string | number) => void
 ) => {
@@ -12,22 +20,50 @@ export const useRemoteControl = (
       return;
     }
     
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    
     try {
-      const channel = supabase.channel('kissa-room');
-      await channel.subscribe(async (status) => {
+      channel = supabase.channel('kissa-room');
+      const channelRef = channel; // Référence locale pour le callback
+      
+      // Timeout pour éviter que le channel reste ouvert indéfiniment
+      const timeoutId = setTimeout(() => {
+        if (channelRef) {
+          supabase.removeChannel(channelRef);
+        }
+      }, 5000); // 5 secondes max
+      
+      await channelRef.subscribe(async (status: ChannelStatus) => {
         if (status === 'SUBSCRIBED') {
-          await channel.send({
-            type: 'broadcast',
-            event: 'select_album',
-            payload: { id: albumId },
-          });
-          // On se désabonne tout de suite après l'envoi pour ne pas laisser traîner
-          supabase.removeChannel(channel);
+          try {
+            await channelRef.send({
+              type: 'broadcast',
+              event: 'select_album',
+              payload: { id: albumId },
+            });
+          } catch (sendError) {
+            console.debug('Error sending broadcast:', sendError);
+          } finally {
+            // On se désabonne tout de suite après l'envoi pour ne pas laisser traîner
+            clearTimeout(timeoutId);
+            if (channelRef) {
+              supabase.removeChannel(channelRef);
+            }
+          }
+        } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+          // Nettoyer en cas d'erreur ou de fermeture
+          clearTimeout(timeoutId);
+          if (channelRef) {
+            supabase.removeChannel(channelRef);
+          }
         }
       });
     } catch (error) {
       // Gérer silencieusement les erreurs de connexion (ne pas bloquer l'UI)
       console.debug('Error broadcasting selection:', error);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     }
   };
 
@@ -39,16 +75,16 @@ export const useRemoteControl = (
     const channel = supabase.channel('kissa-room');
 
     channel
-      .on('broadcast', { event: 'select_album' }, (payload) => {
+      .on('broadcast', { event: 'select_album' }, (payload: BroadcastPayload) => {
         console.log('📡 Signal reçu:', payload);
-        if (payload.payload?.id) {
+        if (payload.payload?.id !== undefined) {
           onRemoteSelect(payload.payload.id);
         }
       })
       .subscribe();
 
     return () => {
-      if (supabase) {
+      if (supabase && channel) {
         supabase.removeChannel(channel);
       }
     };
