@@ -1,33 +1,46 @@
-# 喫茶 KISSA - AI Vinyl Companion 💿
+# 喫茶 KISSA - Online Record Collection 💿
 
-**Kissa** is a full-stack application designed to digitize and manage a vinyl collection instantly. By simply snapping a photo of a record cover, the app identifies the album using a hybrid AI pipeline, retrieves metadata (Discogs), streaming links (Spotify), and saves everything to a personal cloud library.
+**Kissa** is a full-stack application designed to digitize, curate, and play a vinyl collection instantly.
+It bridges the gap between the physical digging experience and digital convenience.
 
-**New:** Now featuring **Zero UI** capabilities compatible with iOS Siri & Action Button for "blind" inventory checks.
+By snapping a photo of a record cover or a center label, the app identifies the album, retrieves deep metadata (Discogs) and audio,
+and allows you to organize your collection like a professional selector.
 
-![Status](https://img.shields.io/badge/Status-MVP%20Live-success)
+**New in v2:** "Selector Toolkit" featuring Mood Tags, Focus Tracks, and specialized 45RPM/Single detection.
+
+![Status](https://img.shields.io/badge/Status-v2.0%20Live-success)
 ![Stack](https://img.shields.io/badge/Stack-Next.js%20%7C%20FastAPI%20%7C%20Supabase-blue)
 
 ## ✨ Features
 
-* **Smart Visual Scan**: Identify albums via mobile camera (handles glare and complex covers).
-* **Advanced AI Pipeline**: Combines **Google Vision** (Web Entities + OCR) with **LLM Reasoning (GPT-4o)** to clean and contextualize raw data before searching.
-* **Zero UI / Headless Mode**:
-    * **Siri Support**: "Hey Siri, do I own 'Daft Punk - Discovery'?"
-    * **Haptic Check**: Use the iPhone Action Button to scan a record and receive a vibration feedback (1 buzz = Owned, 2 buzzes = New).
-* **Manual Search**: Fallback for obscure records.
-* **Cloud Library**: Persistent storage of albums, artists, years, and tracklists via Supabase.
-* **Streaming Integration**: Direct Spotify playback links.
+### 👁️ Visual Scan
+* **Deep Identification**: Identifies LPs, EPs, and **7-inch Singles** (45 RPM) by analyzing covers or reading circular center labels directly.
+* **Visual Reasoning**: The AI understands visual hierarchy.
 
-## 🏗️ Architecture & Vision Pipeline
+### 🎛️ Sorting
+* **Mood & Energy Tags**: Organize records by "Vibe" using customizable color-coded stickers (e.g., 🔴 Peak Time, 🔵 Deep, 🟢 Organic).
+* **Focus Tracks**: Mark specific "Key Tracks" on an album to highlight why it's in your bag.
+* **Smart Filtering**: Filter your collection by Genre AND Vibe simultaneously (e.g., "Show me all *Deep* *Jazz* records").
+* **Inventory Management**: Track storage location ("Bin A", "Shelf 2"), condition, price paid, and purchase history.
 
-The app relies on a decoupled architecture (Vercel Frontend / Render Backend):
+### 🗄️ Digital Crate Digging
+* **Hybrid Search**: Manual fallback searches both **Spotify** (Audio) and **Discogs** (Physical Data) in parallel.
+* **Instant Playback**: "Listen" button integrated.
 
-1.  **Input**: User sends a photo (Web App or iOS Shortcut).
-2.  **Vision (Google Cloud)**: Image analysis (Web Detection + Text Detection).
-3.  **Reasoning (OpenAI GPT-4o)**: An AI Agent analyzes raw OCR data to separate "noise" (e.g., "Stereo", "LP") from useful info (Artist, Title).
-4.  **Metadata (Discogs)**: Precise search based on cleaned data.
-5.  **Enrichment (Spotify)**: Retrieval of streaming links.
-6.  **Storage (Supabase)**: PostgreSQL database operations.
+## 🏗️ Architecture & AI Pipeline
+
+The app relies on a decoupled architecture (Vercel Frontend / Render Backend) with a specialized vision pipeline:
+
+1.  **Input**: User captures a photo.
+2.  **Vision (Google Cloud)**: extracts raw entities, text (OCR), and dominant colors.
+3.  **LLM-Reasoning (GPT-4o)**: An AI Agent performs a "Chain of Thought" analysis:
+    * *Format Detection*: Is it a Cover or a Center Label?
+    * *Typography Separation*: Dissociates Artist names from Logos/Slogans.
+    * *Noise Filtering*: Ignores "Stereo", "Hi-Fi", etc.
+4.  **Data Fetch**:
+    * **Discogs**: For precise physical metadata (Year, Labels, Cats).
+    * **Spotify**: For streaming links and audio features.
+5.  **Storage (Supabase)**: Persists the "Digital Twin" of the record.
 
 ## 🛠️ Tech Stack
 
@@ -35,22 +48,22 @@ The app relies on a decoupled architecture (Vercel Frontend / Render Backend):
 * **Framework**: Next.js 14 (App Router)
 * **Language**: TypeScript
 * **Styling**: Tailwind CSS
-* **Hosting**: Vercel
+* **State**: React Context (Moods, Player)
 
 ### Backend (API)
 * **Framework**: FastAPI (Python 3.10+)
-* **AI & Data**: Google Cloud Vision, OpenAI API, Discogs Client, Spotipy
-* **Server**: Uvicorn
-* **Hosting**: Render
+* **AI**: OpenAI API (GPT-4o), Google Cloud Vision
+* **Integrations**: Spotipy (Spotify), Discogs Client
+* **Server**: Uvicorn / Render
 
 ### Database
-* **DBMS**: Supabase (PostgreSQL)
+* **DBMS**: Supabase (PostgreSQL) with JSONB support for dynamic config.
 
 ---
 
 ## MIT License
 
-Copyright (c) 2024 Kissa Project
+Copyright (c) 2024-2025 Kissa Project
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
