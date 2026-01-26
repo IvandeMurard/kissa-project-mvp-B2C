@@ -3,6 +3,15 @@
 import { useState, useEffect } from "react";
 import { Loader2, Sparkles, ExternalLink, Trash2, Play } from "lucide-react";
 
+const MOOD_OPTIONS = [
+  { color: '#ef4444', label: 'Peak Time / Banger' },
+  { color: '#eab308', label: 'Groove / Warm Up' },
+  { color: '#3b82f6', label: 'Deep / Mental' },
+  { color: '#a855f7', label: 'After / Hypnotic' },
+  { color: '#22c55e', label: 'Organic / Chill' },
+  { color: '#171717', label: 'Dark / Obscure' },
+];
+
 interface Album {
   id: string;
   display: { artist: string; title: string; cover_image: string };
@@ -12,6 +21,7 @@ interface Album {
   editorial_notes?: string | null;
   storage_location?: string | null;
   focus_track_indices?: number[];
+  mood_colors?: string[] | null;
 }
 
 interface AlbumDetailViewProps {
@@ -47,12 +57,16 @@ export function AlbumDetailView({
   const [optimisticFocusIndices, setOptimisticFocusIndices] = useState<number[]>(
     initialAlbum.focus_track_indices || []
   );
+  const [optimisticMoodColors, setOptimisticMoodColors] = useState<string[]>(
+    initialAlbum.mood_colors || []
+  );
   const [errorToast, setErrorToast] = useState<string | null>(null);
 
   // Synchroniser localAlbum et optimisticFocusIndices avec initialAlbum si l'album change
   useEffect(() => {
     setLocalAlbum(initialAlbum);
     setOptimisticFocusIndices(initialAlbum.focus_track_indices || []);
+    setOptimisticMoodColors(initialAlbum.mood_colors || []);
   }, [initialAlbum.id]);
 
   // Auto-dismiss du toast d'erreur
@@ -135,6 +149,65 @@ export function AlbumDetailView({
       console.error("❌ Erreur lors de la mise à jour:", error);
     } finally {
       setIsSavingPurchaseData(false);
+    }
+  };
+
+  // Fonction pour mettre à jour les mood colors (Optimistic UI)
+  const handleUpdateMoodColors = async (albumId: string, newColors: string[]) => {
+    // Sauvegarder l'état actuel pour rollback en cas d'erreur
+    const previousColors = [...optimisticMoodColors];
+    
+    // Mise à jour optimiste immédiate
+    setOptimisticMoodColors(newColors);
+    
+    // Mettre à jour localAlbum immédiatement
+    const updated = {
+      ...localAlbum,
+      mood_colors: newColors,
+    };
+    setLocalAlbum(updated);
+
+    // Appel API en arrière-plan
+    try {
+      const response = await fetch(`${API_URL}/albums/${albumId}/context`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ mood_colors: newColors }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Erreur ${response.status}`);
+      }
+
+      const updatedAlbum = await response.json();
+      
+      // Synchroniser avec la réponse serveur
+      const serverColors = updatedAlbum.mood_colors || [];
+      setOptimisticMoodColors(serverColors);
+      
+      // Mettre à jour localAlbum et notifier le parent
+      const finalUpdated = {
+        ...localAlbum,
+        mood_colors: serverColors,
+      };
+      setLocalAlbum(finalUpdated);
+      
+      if (onUpdateAlbum) {
+        onUpdateAlbum(finalUpdated);
+      }
+    } catch (error) {
+      // Rollback en cas d'erreur
+      setOptimisticMoodColors(previousColors);
+      const rollbackUpdated = {
+        ...localAlbum,
+        mood_colors: previousColors,
+      };
+      setLocalAlbum(rollbackUpdated);
+      showErrorToast("Erreur lors de la mise à jour. Veuillez réessayer.");
+      console.error("❌ Erreur lors de la mise à jour des mood colors:", error);
     }
   };
 
@@ -457,6 +530,45 @@ export function AlbumDetailView({
                     style={{ fontFamily: "var(--font-technical)" }}
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Section VIBE / ENERGY */}
+            <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
+              <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
+                VIBE / ENERGY
+              </h4>
+              <div className="flex flex-wrap gap-3">
+                {MOOD_OPTIONS.map((mood) => {
+                  const isSelected = optimisticMoodColors.includes(mood.color);
+                  return (
+                    <div key={mood.color} className="relative group">
+                      <button
+                        onClick={() => {
+                          const newColors = isSelected
+                            ? optimisticMoodColors.filter(c => c !== mood.color)
+                            : [...optimisticMoodColors, mood.color];
+                          handleUpdateMoodColors(localAlbum.id, newColors);
+                        }}
+                        className={`${compact ? 'w-10 h-10' : 'w-12 h-12'} rounded-full transition-all hover:scale-110 ${
+                          isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-zinc-800' : ''
+                        }`}
+                        style={{
+                          backgroundColor: mood.color,
+                          border: mood.color === '#171717' ? '1px solid white' : 'none',
+                        }}
+                      />
+                      {/* Tooltip */}
+                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
+                        <div className="bg-zinc-800 text-white text-xs px-2 py-1 rounded">
+                          {mood.label}
+                        </div>
+                        {/* Flèche */}
+                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-transparent border-t-zinc-800"></div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

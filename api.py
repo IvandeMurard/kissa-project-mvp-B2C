@@ -21,7 +21,7 @@ if sys.platform == 'win32':
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import shutil
 import os
 import uuid
@@ -75,6 +75,7 @@ class PurchaseDataUpdate(BaseModel):
     price: Optional[float] = None
     condition: Optional[str] = None
     storage_location: Optional[str] = None
+    mood_colors: Optional[List[str]] = None
 
 class GenerateNotesResponse(BaseModel):
     """Réponse de génération de notes éditoriales"""
@@ -278,8 +279,8 @@ Exemple de ton attendu : 'Dès les premières mesures de Space is Only Noise, on
 @app.patch("/albums/{album_id}/context")
 async def update_purchase_context(album_id: str, purchase_data: PurchaseDataUpdate):
     """
-    Met à jour le champ purchase_data (mémoire personnelle) et/ou storage_location d'un album.
-    Permet de stocker : date, location, price, condition, storage_location.
+    Met à jour le champ purchase_data (mémoire personnelle), storage_location et/ou mood_colors d'un album.
+    Permet de stocker : date, location, price, condition, storage_location, mood_colors.
     """
     try:
         # 1. Vérifier que l'album existe
@@ -300,12 +301,13 @@ async def update_purchase_context(album_id: str, purchase_data: PurchaseDataUpda
             purchase_dict["condition"] = purchase_data.condition
         
         has_storage = purchase_data.storage_location is not None
+        has_mood_colors = purchase_data.mood_colors is not None
         
-        # Au moins un champ requis (purchase ou storage_location)
-        if not purchase_dict and not has_storage:
+        # Au moins un champ requis (purchase, storage_location ou mood_colors)
+        if not purchase_dict and not has_storage and not has_mood_colors:
             raise HTTPException(
                 status_code=400,
-                detail="Au moins un champ doit être fourni (date, location, price, condition, storage_location)"
+                detail="Au moins un champ doit être fourni (date, location, price, condition, storage_location, mood_colors)"
             )
         
         update_payload = {}
@@ -317,6 +319,9 @@ async def update_purchase_context(album_id: str, purchase_data: PurchaseDataUpda
         
         if has_storage:
             update_payload["storage_location"] = purchase_data.storage_location
+        
+        if has_mood_colors:
+            update_payload["mood_colors"] = purchase_data.mood_colors
         
         update_response = supabase.table("albums").update(update_payload).eq("id", album_id).execute()
         

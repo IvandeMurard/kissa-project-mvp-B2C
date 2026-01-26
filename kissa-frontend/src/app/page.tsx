@@ -11,6 +11,16 @@ import { useKissaSound } from "@/hooks/useKissaSound";
 import { SoundToggle } from "@/components/SoundToggle";
 import { AlbumDetailView } from "@/components/AlbumDetailView";
 
+// --- CONSTANTS ---
+const MOOD_OPTIONS = [
+  { color: '#ef4444', label: 'Peak Time / Banger' },
+  { color: '#eab308', label: 'Groove / Warm Up' },
+  { color: '#3b82f6', label: 'Deep / Mental' },
+  { color: '#a855f7', label: 'After / Hypnotic' },
+  { color: '#22c55e', label: 'Organic / Chill' },
+  { color: '#171717', label: 'Dark / Obscure' },
+];
+
 // --- TYPES ---
 
 interface Album {
@@ -30,6 +40,8 @@ interface Album {
   storage_location?: string | null;
 
   focus_track_indices?: number[];
+
+  mood_colors?: string[] | null;
 
 }
 
@@ -201,6 +213,8 @@ export default function Home() {
         storage_location: item.storage_location ?? null,
 
         focus_track_indices: item.focus_track_indices || [],
+
+        mood_colors: item.mood_colors || [],
 
       }));
 
@@ -838,6 +852,22 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                     }}
                     className={`w-full h-full object-cover transition-transform duration-500 ease-out md:relative md:z-10 md:group-hover:-translate-x-full group-hover:scale-110 md:group-hover:scale-100 cursor-pointer md:cursor-default ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
                   />
+                  {/* Mood Colors Gommettes */}
+                  {album.mood_colors && album.mood_colors.length > 0 && (
+                    <div className="absolute top-2 right-2 z-20 flex gap-1 flex-wrap max-w-[60%]">
+                      {album.mood_colors.map((color, idx) => (
+                        <div
+                          key={idx}
+                          className="w-3 h-3 md:w-4 md:h-4 rounded-full shadow-sm opacity-90"
+                          style={{
+                            backgroundColor: color,
+                            border: color === '#171717' ? '1px solid white' : 'none',
+                          }}
+                          title={MOOD_OPTIONS.find(c => c.color === color)?.label || ''}
+                        />
+                      ))}
+                    </div>
+                  )}
                   {album.storage_location?.trim() && (
                     <span
                       className="absolute bottom-2 right-2 z-10 flex items-center gap-1 border border-zinc-800 rounded-sm px-1 text-[10px] text-zinc-500 font-mono"
