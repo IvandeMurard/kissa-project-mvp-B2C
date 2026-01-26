@@ -21,7 +21,7 @@ if sys.platform == 'win32':
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict
 import shutil
 import os
 import uuid
@@ -81,6 +81,10 @@ class GenerateNotesResponse(BaseModel):
     """Réponse de génération de notes éditoriales"""
     editorial_notes: str
     album_id: str
+
+class SettingsUpdate(BaseModel):
+    """Modèle pour mettre à jour les settings (configuration des Moods)"""
+    mood_config: Optional[Dict[str, str]] = None
 
 @app.get("/")
 def read_root():
@@ -643,3 +647,99 @@ async def refetch_album_tracks(album_id: str):
     except Exception as e:
         print(f"❌ Erreur lors du refetch de tracklist pour l'album {album_id} : {e}")
         raise HTTPException(status_code=500, detail=f"Erreur lors du refetch : {str(e)}")
+
+@app.get("/settings")
+def get_settings():
+    """
+    Récupère la configuration des settings (notamment mood_config).
+    Retourne les valeurs par défaut si la ligne n'existe pas.
+    """
+    try:
+        # Valeurs par défaut
+        default_mood_config = {
+            "#ef4444": "Peak Time / Banger",
+            "#eab308": "Groove / Warm Up",
+            "#3b82f6": "Deep / Mental",
+            "#a855f7": "After / Hypnotic",
+            "#22c55e": "Organic / Chill",
+            "#171717": "Dark / Obscure"
+        }
+        
+        # Essayer de récupérer depuis Supabase
+        response = supabase.table("settings").select("mood_config").eq("id", 1).execute()
+        
+        if response.data and len(response.data) > 0:
+            mood_config = response.data[0].get("mood_config", default_mood_config)
+            # S'assurer que toutes les couleurs par défaut sont présentes
+            for color, label in default_mood_config.items():
+                if color not in mood_config:
+                    mood_config[color] = label
+            return {"mood_config": mood_config}
+        else:
+            # Si la ligne n'existe pas, retourner les valeurs par défaut
+            return {"mood_config": default_mood_config}
+            
+    except Exception as e:
+        print(f"❌ Erreur lors de la récupération des settings : {e}")
+        # En cas d'erreur, retourner les valeurs par défaut
+        return {
+            "mood_config": {
+                "#ef4444": "Peak Time / Banger",
+                "#eab308": "Groove / Warm Up",
+                "#3b82f6": "Deep / Mental",
+                "#a855f7": "After / Hypnotic",
+                "#22c55e": "Organic / Chill",
+                "#171717": "Dark / Obscure"
+            }
+        }
+
+@app.patch("/settings")
+async def update_settings(settings_update: SettingsUpdate):
+    """
+    Met à jour la configuration des settings (notamment mood_config).
+    """
+    try:
+        if settings_update.mood_config is None:
+            raise HTTPException(status_code=400, detail="mood_config est requis")
+        
+        # Vérifier que toutes les couleurs requises sont présentes
+        required_colors = ["#ef4444", "#eab308", "#3b82f6", "#a855f7", "#22c55e", "#171717"]
+        for color in required_colors:
+            if color not in settings_update.mood_config:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"La couleur {color} est requise dans mood_config"
+                )
+        
+        # Vérifier si la ligne existe
+        check_response = supabase.table("settings").select("id").eq("id", 1).execute()
+        
+        if check_response.data and len(check_response.data) > 0:
+            # Mise à jour
+            update_response = supabase.table("settings").update({
+                "mood_config": settings_update.mood_config
+            }).eq("id", 1).execute()
+            
+            if not update_response.data:
+                raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour")
+            
+            print(f"✅ Settings mis à jour : mood_config")
+            return {"mood_config": update_response.data[0].get("mood_config")}
+        else:
+            # Insertion si la ligne n'existe pas
+            insert_response = supabase.table("settings").insert({
+                "id": 1,
+                "mood_config": settings_update.mood_config
+            }).execute()
+            
+            if not insert_response.data:
+                raise HTTPException(status_code=500, detail="Erreur lors de l'insertion")
+            
+            print(f"✅ Settings créés : mood_config")
+            return {"mood_config": insert_response.data[0].get("mood_config")}
+            
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"❌ Erreur lors de la mise à jour des settings : {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la mise à jour : {str(e)}")

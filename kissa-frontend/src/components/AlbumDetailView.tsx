@@ -3,15 +3,7 @@
 import { useState, useEffect } from "react";
 import { Loader2, Sparkles, ExternalLink, Trash2, Play, RefreshCw } from "lucide-react";
 import { useHaptic } from "@/hooks/useHaptic";
-
-const MOOD_OPTIONS = [
-  { color: '#ef4444', label: 'Peak Time / Banger', shortLabel: 'Peak' },
-  { color: '#eab308', label: 'Groove / Warm Up', shortLabel: 'Groove' },
-  { color: '#3b82f6', label: 'Deep / Mental', shortLabel: 'Deep' },
-  { color: '#a855f7', label: 'After / Hypnotic', shortLabel: 'After' },
-  { color: '#22c55e', label: 'Organic / Chill', shortLabel: 'Organic' },
-  { color: '#171717', label: 'Dark / Obscure', shortLabel: 'Dark' },
-];
+import { useMoodContext } from "@/contexts/MoodContext";
 
 interface Album {
   id: string;
@@ -50,6 +42,7 @@ export function AlbumDetailView({
   compact = false,
   onTabChange,
 }: AlbumDetailViewProps) {
+  const { moodOptions } = useMoodContext();
   const haptic = useHaptic();
   const [activeTab, setActiveTab] = useState<"tracklist" | "sleeve" | "story">("tracklist");
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
@@ -634,7 +627,7 @@ export function AlbumDetailView({
                 VIBE / ENERGY
               </h4>
               <div className="flex flex-wrap gap-3 overflow-visible">
-                {MOOD_OPTIONS.map((mood, index) => {
+                {moodOptions.map((mood, index) => {
                   const isSelected = optimisticMoodColors.includes(mood.color);
                   
                   return (

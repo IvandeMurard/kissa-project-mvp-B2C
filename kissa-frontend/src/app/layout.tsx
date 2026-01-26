@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Rajdhani, Merriweather } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SoundProvider } from "@/contexts/SoundContext";
+import { MoodProvider } from "@/contexts/MoodContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -42,8 +43,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${rajdhani.variable} ${merriweather.variable} antialiased`}
       >
         <SoundProvider>
-          {children}
-          <SpeedInsights />
+          <MoodProvider>
+            {children}
+            <SpeedInsights />
+          </MoodProvider>
         </SoundProvider>
       </body>
     </html>

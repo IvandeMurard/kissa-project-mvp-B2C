@@ -11,16 +11,7 @@ import { useKissaSound } from "@/hooks/useKissaSound";
 import { SoundToggle } from "@/components/SoundToggle";
 import { AlbumDetailView } from "@/components/AlbumDetailView";
 import { FilterBar } from "@/components/FilterBar";
-
-// --- CONSTANTS ---
-const MOOD_OPTIONS = [
-  { color: '#ef4444', label: 'Peak Time / Banger', shortLabel: 'Peak' },
-  { color: '#eab308', label: 'Groove / Warm Up', shortLabel: 'Groove' },
-  { color: '#3b82f6', label: 'Deep / Mental', shortLabel: 'Deep' },
-  { color: '#a855f7', label: 'After / Hypnotic', shortLabel: 'After' },
-  { color: '#22c55e', label: 'Organic / Chill', shortLabel: 'Organic' },
-  { color: '#171717', label: 'Dark / Obscure', shortLabel: 'Dark' },
-];
+import { useMoodContext } from "@/contexts/MoodContext";
 
 // --- TYPES ---
 
@@ -64,9 +55,92 @@ interface SearchCandidate {
 
 }
 
+// Composant pour la section Mood Configuration dans SETUP
+function MoodConfigurationSection() {
+  const { moodOptions, updateMoodLabel, isLoading } = useMoodContext();
+  const [localLabels, setLocalLabels] = useState<Record<string, string>>({});
+  const [savingColor, setSavingColor] = useState<string | null>(null);
 
+  // Initialiser les labels locaux avec les valeurs du context
+  useEffect(() => {
+    const labels: Record<string, string> = {};
+    moodOptions.forEach(mood => {
+      labels[mood.color] = mood.label;
+    });
+    setLocalLabels(labels);
+  }, [moodOptions]);
+
+  const handleLabelChange = (color: string, newLabel: string) => {
+    setLocalLabels(prev => ({ ...prev, [color]: newLabel }));
+  };
+
+  const handleSaveLabel = async (color: string) => {
+    const newLabel = localLabels[color];
+    if (!newLabel || newLabel.trim() === '') return;
+    
+    if (newLabel === moodOptions.find(m => m.color === color)?.label) {
+      // Pas de changement, pas besoin de sauvegarder
+      return;
+    }
+
+    setSavingColor(color);
+    try {
+      await updateMoodLabel(color, newLabel.trim());
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde:", error);
+      // Restaurer la valeur précédente en cas d'erreur
+      const originalLabel = moodOptions.find(m => m.color === color)?.label || '';
+      setLocalLabels(prev => ({ ...prev, [color]: originalLabel }));
+    } finally {
+      setSavingColor(null);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="bg-[#111] border border-white/10 rounded-lg p-6">
+        <h3 className="amp-label text-white mb-4">MOOD CONFIGURATION</h3>
+        <p className="text-neutral-500 text-xs">Chargement...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-[#111] border border-white/10 rounded-lg p-6">
+      <h3 className="amp-label text-white mb-4">MOOD CONFIGURATION</h3>
+      <div className="space-y-3">
+        {moodOptions.map((mood) => (
+          <div key={mood.color} className="flex items-center gap-3">
+            {/* Cercle de couleur */}
+            <div
+              className="w-6 h-6 rounded-full shrink-0"
+              style={{
+                backgroundColor: mood.color,
+                border: mood.color === '#171717' ? '1px solid white' : 'none',
+              }}
+            />
+            {/* Input */}
+            <input
+              type="text"
+              value={localLabels[mood.color] || mood.label}
+              onChange={(e) => handleLabelChange(mood.color, e.target.value)}
+              onBlur={() => handleSaveLabel(mood.color)}
+              disabled={savingColor === mood.color}
+              className="flex-1 bg-transparent border-b border-zinc-700 text-white text-sm focus:outline-none focus:border-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              placeholder="Label du mood"
+            />
+            {savingColor === mood.color && (
+              <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
+  const { moodOptions, updateMoodLabel, isLoading: isLoadingMoods } = useMoodContext();
 
   // Configuration de l'URL de l'API (utilise NEXT_PUBLIC_API_URL en production, localhost en dev)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
@@ -875,7 +949,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                             backgroundColor: color,
                             border: color === '#171717' ? '1px solid white' : 'none',
                           }}
-                          title={MOOD_OPTIONS.find(c => c.color === color)?.shortLabel || ''}
+                          title={moodOptions.find(c => c.color === color)?.label || ''}
                         />
                       ))}
                     </div>
@@ -1292,11 +1366,8 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
               </div>
             </div>
 
-            {/* Placeholder pour futures préférences */}
-            <div className="bg-[#111] border border-white/10 rounded-lg p-6 opacity-50">
-              <h3 className="amp-label text-white mb-4">PREFERENCES</h3>
-              <p className="text-neutral-500 text-xs">More settings coming soon...</p>
-            </div>
+            {/* Section Mood Configuration */}
+            <MoodConfigurationSection />
           </div>
         </div>
       )}

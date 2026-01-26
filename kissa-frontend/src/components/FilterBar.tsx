@@ -3,15 +3,7 @@
 import { useState } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import { useKissaSound } from "@/hooks/useKissaSound";
-
-const MOOD_OPTIONS = [
-  { color: '#ef4444', label: 'Peak Time / Banger', shortLabel: 'Peak' },
-  { color: '#eab308', label: 'Groove / Warm Up', shortLabel: 'Groove' },
-  { color: '#3b82f6', label: 'Deep / Mental', shortLabel: 'Deep' },
-  { color: '#a855f7', label: 'After / Hypnotic', shortLabel: 'After' },
-  { color: '#22c55e', label: 'Organic / Chill', shortLabel: 'Organic' },
-  { color: '#171717', label: 'Dark / Obscure', shortLabel: 'Dark' },
-];
+import { useMoodContext } from "@/contexts/MoodContext";
 
 interface FilterBarProps {
   availableGenres: string[];
@@ -31,6 +23,7 @@ export function FilterBar({
   sounds,
 }: FilterBarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { moodOptions } = useMoodContext();
 
   // Fonction pour positionner le tooltip intelligemment
   const getTooltipPosition = (index: number) => {
@@ -84,7 +77,7 @@ export function FilterBar({
 
         {/* Chips des filtres actifs - Couleurs */}
         {selectedMoods.map((color) => {
-          const mood = MOOD_OPTIONS.find((m) => m.color === color);
+          const mood = moodOptions.find((m) => m.color === color);
           return (
             <button
               key={color}
@@ -140,7 +133,7 @@ export function FilterBar({
           <div>
             <h4 className="amp-label text-xs text-zinc-400 mb-3 uppercase tracking-wider">VIBE</h4>
             <div className="flex justify-center gap-4">
-              {MOOD_OPTIONS.map((mood, index) => {
+              {moodOptions.map((mood, index) => {
                 const isSelected = selectedMoods.includes(mood.color);
                 return (
                   <button
@@ -259,7 +252,7 @@ export function FilterBar({
 
         {/* Section Mood Colors */}
         <div className="flex items-center gap-2 shrink-0">
-          {MOOD_OPTIONS.map((mood, index) => {
+          {moodOptions.map((mood, index) => {
             const isSelected = selectedMoods.includes(mood.color);
             return (
               <button
@@ -287,7 +280,7 @@ export function FilterBar({
                 <span
                   className={`absolute top-full mt-2 hidden opacity-0 group-hover:block group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 whitespace-nowrap bg-black/90 text-white text-[10px] px-2 py-1 rounded shadow-lg border border-white/10 ${getTooltipPosition(index)}`}
                 >
-                  {mood.shortLabel}
+                  {mood.label}
                   {/* Flèche pointant vers le haut */}
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-b-[4px] border-transparent border-b-black/90"></div>
                 </span>
