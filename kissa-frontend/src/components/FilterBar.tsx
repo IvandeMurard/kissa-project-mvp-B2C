@@ -1,5 +1,7 @@
 "use client";
 
+import { useKissaSound } from "@/hooks/useKissaSound";
+
 const MOOD_OPTIONS = [
   { color: '#ef4444', label: 'Peak Time / Banger', shortLabel: 'Peak' },
   { color: '#eab308', label: 'Groove / Warm Up', shortLabel: 'Groove' },
@@ -15,6 +17,7 @@ interface FilterBarProps {
   onGenreChange: (genre: string | null) => void;
   selectedMood: string | null;
   onMoodChange: (mood: string | null) => void;
+  sounds?: ReturnType<typeof useKissaSound>;
 }
 
 export function FilterBar({
@@ -23,6 +26,7 @@ export function FilterBar({
   onGenreChange,
   selectedMood,
   onMoodChange,
+  sounds,
 }: FilterBarProps) {
   // Fonction pour positionner le tooltip intelligemment
   const getTooltipPosition = (index: number) => {
