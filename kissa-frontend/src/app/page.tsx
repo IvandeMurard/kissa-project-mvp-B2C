@@ -113,7 +113,7 @@ export default function Home() {
   const [sortOption, setSortOption] = useState<"recent" | "artist" | "year" | "location">("recent");
 
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
-  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
 
   const [availableGenres, setAvailableGenres] = useState<string[]>([]);
 
@@ -580,7 +580,7 @@ export default function Home() {
 
   // Logique de filtrage et tri
   useEffect(() => {
-    console.log("🔄 useEffect de filtrage déclenché, allAlbums:", allAlbums.length, "searchQuery:", searchQuery, "selectedGenre:", selectedGenre, "selectedMood:", selectedMood);
+    console.log("🔄 useEffect de filtrage déclenché, allAlbums:", allAlbums.length, "searchQuery:", searchQuery, "selectedGenre:", selectedGenre, "selectedMoods:", selectedMoods);
     
     let filtered = [...allAlbums];
 
@@ -601,12 +601,12 @@ export default function Home() {
       console.log(`🎵 Filtrage par genre "${selectedGenre}": ${filtered.length} résultat(s)`);
     }
 
-    // Filtrage par mood (couleur)
-    if (selectedMood) {
+    // Filtrage par mood (couleur) - Multi-sélection avec logique OR
+    if (selectedMoods.length > 0) {
       filtered = filtered.filter((album) => 
-        album.mood_colors && album.mood_colors.includes(selectedMood)
+        album.mood_colors && album.mood_colors.some(c => selectedMoods.includes(c))
       );
-      console.log(`🎨 Filtrage par mood "${selectedMood}": ${filtered.length} résultat(s)`);
+      console.log(`🎨 Filtrage par moods [${selectedMoods.join(', ')}]: ${filtered.length} résultat(s)`);
     }
 
     // Tri
@@ -635,7 +635,7 @@ export default function Home() {
 
     console.log(`✅ Albums filtrés: ${filtered.length} sur ${allAlbums.length} total`);
     setFilteredAlbums(filtered);
-  }, [allAlbums, searchQuery, selectedGenre, selectedMood, sortOption]);
+  }, [allAlbums, searchQuery, selectedGenre, selectedMoods, sortOption]);
 
   useEffect(() => {
     if (!successToast) return;
@@ -751,9 +751,9 @@ export default function Home() {
             onGenreChange={(genre) => {
               setSelectedGenre(genre);
             }}
-            selectedMood={selectedMood}
-            onMoodChange={(mood) => {
-              setSelectedMood(mood);
+            selectedMoods={selectedMoods}
+            onMoodChange={(moods) => {
+              setSelectedMoods(moods);
             }}
             sounds={sounds}
           />

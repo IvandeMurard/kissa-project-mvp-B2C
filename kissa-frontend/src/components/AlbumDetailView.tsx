@@ -534,7 +534,7 @@ export function AlbumDetailView({
           )
         ) : activeTab === "sleeve" ? (
           /* Onglet SLEEVE NOTES - Acquisition Log uniquement */
-          <div className={`${compact ? "space-y-3" : "space-y-6"} transition-opacity duration-300`}>
+          <div className={`${compact ? "space-y-3 pb-24" : "space-y-6 pb-32"} transition-opacity duration-300`}>
             {/* Section Acquisition Log */}
             <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
               <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
@@ -646,7 +646,7 @@ export function AlbumDetailView({
                           : [...optimisticMoodColors, mood.color];
                         handleUpdateMoodColors(localAlbum.id, newColors);
                       }}
-                      className="group relative cursor-pointer"
+                      className="group relative cursor-pointer hover:z-[100]"
                     >
                       {/* Cercle de couleur */}
                       <div
@@ -662,13 +662,12 @@ export function AlbumDetailView({
                       />
                       
                       {/* Tooltip - Invisible sauf au hover du groupe parent */}
-                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 
+                      <div className={`absolute bottom-full mb-2 
+                                      ${index === 0 ? 'left-0' : index > 3 ? 'right-0' : 'left-1/2 -translate-x-1/2'}
                                       invisible opacity-0 group-hover:visible group-hover:opacity-100 
-                                      transition-all duration-200 ease-in-out z-[100] pointer-events-none
-                                      bg-zinc-800 text-zinc-200 text-xs px-2 py-1 rounded border border-zinc-700 whitespace-nowrap">
-                        {mood.shortLabel}
-                        {/* Petit triangle optionnel en bas du tooltip */}
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-700" />
+                                      transition-all duration-200 ease-in-out z-50 pointer-events-none
+                                      bg-zinc-800 text-zinc-200 text-[10px] px-2 py-1 rounded border border-zinc-700 whitespace-nowrap`}>
+                        {mood.label}
                       </div>
                     </button>
                   );

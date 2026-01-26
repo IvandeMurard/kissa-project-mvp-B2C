@@ -15,8 +15,8 @@ interface FilterBarProps {
   availableGenres: string[];
   selectedGenre: string | null;
   onGenreChange: (genre: string | null) => void;
-  selectedMood: string | null;
-  onMoodChange: (mood: string | null) => void;
+  selectedMoods: string[];
+  onMoodChange: (moods: string[]) => void;
   sounds?: ReturnType<typeof useKissaSound>;
 }
 
@@ -24,7 +24,7 @@ export function FilterBar({
   availableGenres,
   selectedGenre,
   onGenreChange,
-  selectedMood,
+  selectedMoods,
   onMoodChange,
   sounds,
 }: FilterBarProps) {
@@ -33,6 +33,16 @@ export function FilterBar({
     if (index === 0) return 'left-0';
     if (index >= 4) return 'right-0';
     return 'left-1/2 -translate-x-1/2';
+  };
+
+  const handleMoodClick = (color: string) => {
+    if (selectedMoods.includes(color)) {
+      // Si déjà présent, on l'enlève
+      onMoodChange(selectedMoods.filter(c => c !== color));
+    } else {
+      // Sinon on l'ajoute
+      onMoodChange([...selectedMoods, color]);
+    }
   };
 
   return (
@@ -77,13 +87,13 @@ export function FilterBar({
       {/* Section Mood Colors */}
       <div className="flex items-center gap-2 shrink-0">
         {MOOD_OPTIONS.map((mood, index) => {
-          const isSelected = selectedMood === mood.color;
+          const isSelected = selectedMoods.includes(mood.color);
           return (
             <button
               key={mood.color}
               onClick={() => {
                 sounds?.playSwitch();
-                onMoodChange(isSelected ? null : mood.color);
+                handleMoodClick(mood.color);
               }}
               className="group relative cursor-pointer"
             >
