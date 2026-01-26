@@ -1200,11 +1200,11 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
               setShowManualSearch(true);
               haptic.light();
             }}
-            className="absolute top-6 right-6 flex items-center gap-2 text-neutral-400 hover:text-white transition-colors amp-label z-10 touch-manipulation"
+            className="absolute top-6 right-6 flex items-center gap-2 rounded-full bg-black/40 backdrop-blur-md border border-white/20 px-4 py-2 transition-all duration-200 hover:bg-white/10 hover:border-white/40 hover:text-white active:scale-95 z-10 touch-manipulation"
             title="Recherche manuelle"
           >
-            <Search className="w-4 h-4" />
-            <span className="text-xs">Search Manually</span>
+            <Search className="w-4 h-4 text-white/90" />
+            <span className="text-[10px] font-mono tracking-widest text-white/80 uppercase">MANUAL SEARCH</span>
           </button>
 
           {/* Container principal centré */}
