@@ -539,34 +539,43 @@ export function AlbumDetailView({
                 VIBE / ENERGY
               </h4>
               <div className="flex flex-wrap gap-3">
-                {MOOD_OPTIONS.map((mood) => {
+                {MOOD_OPTIONS.map((mood, index) => {
                   const isSelected = optimisticMoodColors.includes(mood.color);
                   return (
-                    <div key={mood.color} className="relative group">
-                      <button
-                        onClick={() => {
-                          const newColors = isSelected
-                            ? optimisticMoodColors.filter(c => c !== mood.color)
-                            : [...optimisticMoodColors, mood.color];
-                          handleUpdateMoodColors(localAlbum.id, newColors);
-                        }}
-                        className={`${compact ? 'w-10 h-10' : 'w-12 h-12'} rounded-full transition-all hover:scale-110 ${
-                          isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-zinc-800' : ''
+                    <button
+                      key={mood.color}
+                      onClick={() => {
+                        const newColors = isSelected
+                          ? optimisticMoodColors.filter(c => c !== mood.color)
+                          : [...optimisticMoodColors, mood.color];
+                        handleUpdateMoodColors(localAlbum.id, newColors);
+                      }}
+                      className="group relative cursor-pointer"
+                    >
+                      {/* Cercle de couleur */}
+                      <div
+                        className={`${compact ? 'w-5 h-5' : 'w-6 h-6'} rounded-full transition-all duration-200 ${
+                          isSelected
+                            ? 'ring-2 ring-white ring-offset-2 ring-offset-zinc-900'
+                            : 'opacity-80 hover:opacity-100 hover:scale-110'
                         }`}
                         style={{
                           backgroundColor: mood.color,
                           border: mood.color === '#171717' ? '1px solid white' : 'none',
                         }}
                       />
+                      
                       {/* Tooltip */}
-                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
-                        <div className="bg-zinc-800 text-white text-xs px-2 py-1 rounded">
-                          {mood.label}
-                        </div>
+                      <span
+                        className={`absolute bottom-full mb-2 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 whitespace-nowrap bg-black/90 text-white text-[10px] px-2 py-1 rounded shadow-lg border border-white/10 ${
+                          index > 2 ? 'right-0' : 'left-1/2 -translate-x-1/2'
+                        }`}
+                      >
+                        {mood.label}
                         {/* Flèche */}
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-transparent border-t-zinc-800"></div>
-                      </div>
-                    </div>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-transparent border-t-black/90"></div>
+                      </span>
+                    </button>
                   );
                 })}
               </div>
