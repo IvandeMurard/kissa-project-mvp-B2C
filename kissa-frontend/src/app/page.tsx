@@ -749,12 +749,10 @@ export default function Home() {
             availableGenres={availableGenres}
             selectedGenre={selectedGenre}
             onGenreChange={(genre) => {
-              sounds.playSwitch();
               setSelectedGenre(genre);
             }}
             selectedMood={selectedMood}
             onMoodChange={(mood) => {
-              sounds.playSwitch();
               setSelectedMood(mood);
             }}
             sounds={sounds}

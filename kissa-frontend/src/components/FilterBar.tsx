@@ -15,7 +15,6 @@ interface FilterBarProps {
   onGenreChange: (genre: string | null) => void;
   selectedMood: string | null;
   onMoodChange: (mood: string | null) => void;
-  sounds?: { playSwitch: () => void };
 }
 
 export function FilterBar({
@@ -24,7 +23,6 @@ export function FilterBar({
   onGenreChange,
   selectedMood,
   onMoodChange,
-  sounds,
 }: FilterBarProps) {
   // Fonction pour positionner le tooltip intelligemment
   const getTooltipPosition = (index: number) => {
