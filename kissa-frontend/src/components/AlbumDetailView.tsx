@@ -636,12 +636,6 @@ export function AlbumDetailView({
               <div className="flex flex-wrap gap-3 overflow-visible">
                 {MOOD_OPTIONS.map((mood, index) => {
                   const isSelected = optimisticMoodColors.includes(mood.color);
-                  // Logique de positionnement intelligent
-                  const getTooltipPosition = () => {
-                    if (index === 0) return 'left-0';
-                    if (index >= 4) return 'right-0';
-                    return 'left-1/2 -translate-x-1/2';
-                  };
                   
                   return (
                     <button
@@ -667,14 +661,15 @@ export function AlbumDetailView({
                         }}
                       />
                       
-                      {/* Tooltip en dessous */}
-                      <span
-                        className={`absolute top-full mt-2 hidden opacity-0 group-hover:block group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 whitespace-nowrap bg-black/90 text-white text-[10px] px-2 py-1 rounded shadow-lg border border-white/10 ${getTooltipPosition()}`}
-                      >
+                      {/* Tooltip - Invisible sauf au hover du groupe parent */}
+                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 
+                                      invisible opacity-0 group-hover:visible group-hover:opacity-100 
+                                      transition-all duration-200 ease-in-out z-[100] pointer-events-none
+                                      bg-zinc-800 text-zinc-200 text-xs px-2 py-1 rounded border border-zinc-700 whitespace-nowrap">
                         {mood.shortLabel}
-                        {/* Flèche pointant vers le haut */}
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-b-[4px] border-transparent border-b-black/90"></div>
-                      </span>
+                        {/* Petit triangle optionnel en bas du tooltip */}
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-700" />
+                      </div>
                     </button>
                   );
                 })}
