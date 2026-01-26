@@ -447,25 +447,61 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
 
         if not self.sp:
 
+            print(f"   ⚠️ Client Spotify non disponible pour album_id: {album_id}")
+
             return None
 
         try:
+
+            print(f"   🔍 Récupération tracks pour album_id Spotify: {album_id}")
 
             # Récupérer la première page (limite 50 par défaut)
 
             tracks_response = self.sp.album_tracks(album_id, limit=50)
 
+            
+            
+            if not tracks_response or 'items' not in tracks_response:
+
+                print(f"   ⚠️ Réponse invalide de Spotify pour album_id: {album_id}")
+
+                return None
+
             all_tracks = tracks_response['items']
+
+            print(f"   📄 Première page: {len(all_tracks)} pistes")
 
             
 
             # Pagination : récupérer toutes les pages suivantes
 
-            while tracks_response['next']:
+            page_count = 1
+
+            while tracks_response.get('next'):
+
+                page_count += 1
 
                 tracks_response = self.sp.next(tracks_response)
 
-                all_tracks.extend(tracks_response['items'])
+                if tracks_response and 'items' in tracks_response:
+
+                    all_tracks.extend(tracks_response['items'])
+
+                    print(f"   📄 Page {page_count}: {len(tracks_response['items'])} pistes supplémentaires")
+
+                else:
+
+                    print(f"   ⚠️ Réponse invalide lors de la pagination (page {page_count})")
+
+                    break
+
+            
+
+            if not all_tracks or len(all_tracks) == 0:
+
+                print(f"   ⚠️ Aucune piste trouvée pour album_id: {album_id}")
+
+                return None
 
             
 
@@ -473,7 +509,7 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
 
             tracklist = [track['name'] for track in all_tracks]
 
-            print(f"   ✅ {len(tracklist)} pistes récupérées depuis Spotify")
+            print(f"   ✅ {len(tracklist)} pistes récupérées depuis Spotify (album_id: {album_id})")
 
             return tracklist
 
@@ -481,7 +517,11 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
 
         except Exception as e:
 
-            print(f"ATTENTION : Erreur récupération tracks Spotify (non bloquant) : {e}")
+            print(f"   ❌ Erreur récupération tracks Spotify pour album_id {album_id}: {type(e).__name__}: {e}")
+
+            import traceback
+
+            print(f"   📋 Traceback: {traceback.format_exc()}")
 
             return None
 
@@ -527,6 +567,12 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
 
                 album_id = spotify_album['id']
 
+                album_name = spotify_album.get('name', 'Unknown')
+
+                print(f"   ✅ Album trouvé sur Spotify: {album_name} (ID: {album_id})")
+
+                
+
                 # Spotify classe les images par taille, index 0 = la plus grande (640x640)
 
                 hd_cover = spotify_album['images'][0]['url'] if spotify_album['images'] else None
@@ -536,6 +582,20 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
                 # Récupérer les tracks avec pagination
 
                 tracks = self._fetch_spotify_tracks(album_id)
+
+                
+                
+                if tracks is None:
+
+                    print(f"   ⚠️ Aucune tracklist récupérée depuis Spotify pour {album_name}")
+
+                elif len(tracks) == 0:
+
+                    print(f"   ⚠️ Tracklist vide depuis Spotify pour {album_name}")
+
+                else:
+
+                    print(f"   ✅ Tracklist récupérée: {len(tracks)} pistes pour {album_name}")
 
                 
 
@@ -550,6 +610,10 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
                     "tracks": tracks
 
                 }
+
+            else:
+
+                print(f"   ⚠️ Aucun album trouvé sur Spotify pour la recherche: {q}")
 
             return None
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Sparkles, ExternalLink, Trash2, Play } from "lucide-react";
+import { Loader2, Sparkles, ExternalLink, Trash2, Play, RefreshCw } from "lucide-react";
 import { useHaptic } from "@/hooks/useHaptic";
 
 const MOOD_OPTIONS = [
@@ -55,6 +55,7 @@ export function AlbumDetailView({
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
   const [isSavingPurchaseData, setIsSavingPurchaseData] = useState(false);
   const [isTogglingTrack, setIsTogglingTrack] = useState(false);
+  const [isRefetchingTracklist, setIsRefetchingTracklist] = useState(false);
   const [localAlbum, setLocalAlbum] = useState<Album>(initialAlbum);
   const [optimisticFocusIndices, setOptimisticFocusIndices] = useState<number[]>(
     initialAlbum.focus_track_indices || []
@@ -63,6 +64,7 @@ export function AlbumDetailView({
     initialAlbum.mood_colors || []
   );
   const [errorToast, setErrorToast] = useState<string | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
 
   // Synchroniser localAlbum et optimisticFocusIndices avec initialAlbum si l'album change
   useEffect(() => {
@@ -78,9 +80,21 @@ export function AlbumDetailView({
     return () => clearTimeout(timer);
   }, [errorToast]);
 
+  // Auto-dismiss du toast de succès
+  useEffect(() => {
+    if (!successToast) return;
+    const timer = setTimeout(() => setSuccessToast(null), 3000);
+    return () => clearTimeout(timer);
+  }, [successToast]);
+
   // Fonction helper pour afficher le toast d'erreur
   const showErrorToast = (message: string) => {
     setErrorToast(message);
+  };
+
+  // Fonction helper pour afficher le toast de succès
+  const showSuccessToast = (message: string) => {
+    setSuccessToast(message);
   };
 
   // Fonction pour générer les notes éditoriales
@@ -210,6 +224,61 @@ export function AlbumDetailView({
       setLocalAlbum(rollbackUpdated);
       showErrorToast("Erreur lors de la mise à jour. Veuillez réessayer.");
       console.error("❌ Erreur lors de la mise à jour des mood colors:", error);
+    }
+  };
+
+  // Fonction pour refetch la tracklist depuis Spotify
+  const handleRefetchTracklist = async () => {
+    setIsRefetchingTracklist(true);
+    try {
+      const response = await fetch(`${API_URL}/admin/refetch-album-tracks/${localAlbum.id}`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || errorData.reason || `Erreur ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.status === "success" && result.new_tracklist) {
+        // Mettre à jour l'album local
+        const updated = {
+          ...localAlbum,
+          details: {
+            ...localAlbum.details,
+            tracklist: result.new_tracklist,
+          },
+        };
+        setLocalAlbum(updated);
+        
+        // Notifier le parent
+        if (onUpdateAlbum) {
+          onUpdateAlbum(updated);
+        }
+        
+        // Afficher un message de succès
+        showSuccessToast(`Tracklist mise à jour : ${result.new_tracklist_count} pistes`);
+      } else {
+        // Afficher un message d'erreur contextuel selon la raison
+        let errorMessage = result.reason || "Échec de la récupération de la tracklist";
+        
+        if (result.reason === "Pas de spotify_url dans la BDD") {
+          errorMessage = "Aucun lien Spotify disponible pour cet album";
+        } else if (result.reason === "Client Spotify non disponible") {
+          errorMessage = "Service Spotify temporairement indisponible";
+        } else if (result.reason === "Aucune piste trouvée sur Spotify pour cet album") {
+          errorMessage = "Aucune piste trouvée sur Spotify pour cet album";
+        }
+        
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error("❌ Erreur lors du refetch de tracklist:", error);
+      showErrorToast(error instanceof Error ? error.message : "Erreur lors de la récupération");
+    } finally {
+      setIsRefetchingTracklist(false);
     }
   };
 
@@ -437,7 +506,31 @@ export function AlbumDetailView({
               })}
             </ul>
           ) : (
-            <p className={`text-zinc-500 ${contentSize}`}>Aucune piste disponible</p>
+            <div className={`${contentSize} space-y-4`}>
+              <p className="text-zinc-500">Aucune piste disponible</p>
+              {localAlbum.links.spotify_url && (
+                <button
+                  onClick={handleRefetchTracklist}
+                  disabled={isRefetchingTracklist}
+                  className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-white text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isRefetchingTracklist ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Récupération en cours...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Récupérer la tracklist depuis Spotify</span>
+                    </>
+                  )}
+                </button>
+              )}
+              {!localAlbum.links.spotify_url && (
+                <p className="text-zinc-600 text-xs">Aucun lien Spotify disponible pour cet album</p>
+              )}
+            </div>
           )
         ) : activeTab === "sleeve" ? (
           /* Onglet SLEEVE NOTES - Acquisition Log uniquement */
@@ -694,6 +787,13 @@ export function AlbumDetailView({
       {errorToast && (
         <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-4">
           {errorToast}
+        </div>
+      )}
+
+      {/* Toast de succès */}
+      {successToast && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-4">
+          {successToast}
         </div>
       )}
     </div>
