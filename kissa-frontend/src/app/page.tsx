@@ -222,7 +222,7 @@ export default function Home() {
   const [isPlaying, setIsPlaying] = useState(false);
 
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
-  const [modalActiveTab, setModalActiveTab] = useState<"tracklist" | "sleeve" | "story">("tracklist");
+  const [modalActiveTab, setModalActiveTab] = useState<"tracklist" | "sleeve" | "story" | "vibe">("tracklist");
 
   const [successToast, setSuccessToast] = useState<string | null>(null);
 

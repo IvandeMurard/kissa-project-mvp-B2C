@@ -27,7 +27,7 @@ interface AlbumDetailViewProps {
   API_URL: string;
   sounds?: { playVinylStart: () => void };
   compact?: boolean;
-  onTabChange?: (tab: "tracklist" | "sleeve" | "story") => void;
+  onTabChange?: (tab: "tracklist" | "sleeve" | "story" | "vibe") => void;
 }
 
 export function AlbumDetailView({
@@ -44,7 +44,7 @@ export function AlbumDetailView({
 }: AlbumDetailViewProps) {
   const { moodOptions } = useMoodContext();
   const haptic = useHaptic();
-  const [activeTab, setActiveTab] = useState<"tracklist" | "sleeve" | "story">("tracklist");
+  const [activeTab, setActiveTab] = useState<"tracklist" | "sleeve" | "story" | "vibe">("tracklist");
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
   const [isSavingPurchaseData, setIsSavingPurchaseData] = useState(false);
   const [isTogglingTrack, setIsTogglingTrack] = useState(false);
@@ -59,6 +59,8 @@ export function AlbumDetailView({
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [storyError, setStoryError] = useState<string | null>(null);
+  const [hoveredMoodVibe, setHoveredMoodVibe] = useState<string | null>(null);
+  const [tooltipPositionVibe, setTooltipPositionVibe] = useState<{ x: number; y: number } | null>(null);
 
   // Synchroniser localAlbum et optimisticFocusIndices avec initialAlbum si l'album change
   useEffect(() => {
@@ -399,7 +401,7 @@ export function AlbumDetailView({
   return (
     <div className="flex flex-col h-full relative overflow-hidden bg-zinc-950">
       {/* Zone A : Contenu scrollable (Haut) */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide p-4 pb-40">
+      <div className="flex-1 overflow-y-auto scrollbar-hide p-4 pb-20">
         {/* Header */}
         <div className={`mb-4 ${compact ? 'mb-2' : ''} ${showActions && !compact ? 'pr-8' : ''} ${
           activeTab === "story" ? "md:mb-4" : ""
@@ -477,6 +479,19 @@ export function AlbumDetailView({
             }`}
           >
             STORY
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("vibe");
+              onTabChange?.("vibe");
+            }}
+            className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
+              activeTab === "vibe"
+                ? "text-white border-b-2 border-white"
+                : "text-zinc-400 hover:text-zinc-300"
+            }`}
+          >
+            VIBE
           </button>
         </div>
 
@@ -631,6 +646,66 @@ export function AlbumDetailView({
                 </div>
               </div>
             </div>
+          ) : activeTab === "vibe" ? (
+            /* Onglet VIBE - Gommettes centrées */
+            <div className="flex items-center justify-center min-h-[400px]">
+              <div className="flex flex-wrap justify-center gap-6 max-w-2xl">
+                {moodOptions.map((mood) => {
+                  const isSelected = optimisticMoodColors.includes(mood.color);
+                  return (
+                    <button
+                      key={mood.color}
+                      onClick={() => {
+                        const newColors = isSelected
+                          ? optimisticMoodColors.filter(c => c !== mood.color)
+                          : [...optimisticMoodColors, mood.color];
+                        handleUpdateMoodColors(localAlbum.id, newColors);
+                      }}
+                      onMouseEnter={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setTooltipPositionVibe({
+                          x: rect.left + rect.width / 2,
+                          y: rect.top - 8
+                        });
+                        setHoveredMoodVibe(mood.color);
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredMoodVibe(null);
+                        setTooltipPositionVibe(null);
+                      }}
+                      className="group relative flex items-center justify-center w-16 h-16 outline-none cursor-pointer"
+                    >
+                      {/* Cercle de couleur - Plus gros dans VIBE */}
+                      <div 
+                        className={`w-12 h-12 rounded-full transition-transform duration-200 group-hover:scale-110 ${
+                          isSelected 
+                            ? 'ring-2 ring-white ring-offset-2 ring-offset-black' 
+                            : 'opacity-60 hover:opacity-100'
+                        }`}
+                        style={{ backgroundColor: mood.color }}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Tooltip avec position fixed pour VIBE */}
+              {hoveredMoodVibe && tooltipPositionVibe && (
+                <div
+                  className="fixed z-[9999] pointer-events-none whitespace-nowrap bg-zinc-800 text-white text-[10px] font-medium px-2 py-1 rounded border border-white/10 shadow-xl"
+                  style={{
+                    left: `${tooltipPositionVibe.x}px`,
+                    top: `${tooltipPositionVibe.y}px`,
+                    transform: 'translate(-50%, -100%)',
+                    opacity: hoveredMoodVibe ? 1 : 0,
+                    transition: 'opacity 200ms ease-out'
+                  }}
+                >
+                  {moodOptions.find(m => m.color === hoveredMoodVibe)?.label}
+                  {/* Flèche */}
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"></div>
+                </div>
+              )}
+            </div>
           ) : (
             /* Onglet STORY - Editorial uniquement */
             <div className={`${compact ? 'space-y-3' : activeTab === "story" ? 'flex-1 flex flex-col' : 'space-y-6'}`}>
@@ -744,64 +819,18 @@ export function AlbumDetailView({
         )}
       </div>
 
-      {/* Zone B : Control Bar (Footer fixe) */}
-      <div className="absolute bottom-0 left-0 right-0 z-50 bg-zinc-950/95 backdrop-blur-xl border-t border-white/10 p-4">
-        {/* Section Gommettes (Moods) */}
-        <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3 mb-3' : 'p-4 mb-4'}`}>
-          <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
-            VIBE / ENERGY
-          </h4>
-          <div className="flex flex-wrap gap-3 overflow-visible">
-            {moodOptions.map((mood) => {
-              const isSelected = optimisticMoodColors.includes(mood.color);
-              
-              return (
-                <button
-                  key={mood.color}
-                  onClick={() => {
-                    const newColors = isSelected
-                      ? optimisticMoodColors.filter(c => c !== mood.color)
-                      : [...optimisticMoodColors, mood.color];
-                    handleUpdateMoodColors(localAlbum.id, newColors);
-                  }}
-                  className="group relative flex items-center justify-center w-8 h-8 outline-none cursor-pointer"
-                >
-                  {/* Le Cercle */}
-                  <div 
-                    className={`w-4 h-4 rounded-full transition-transform duration-200 group-hover:scale-125 ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-black' : 'opacity-60 hover:opacity-100'}`}
-                    style={{ backgroundColor: mood.color }}
-                  />
-                  
-                  {/* Le Tooltip (Fixé) */}
-                  <div className="
-                    absolute bottom-full mb-3 left-1/2 -translate-x-1/2
-                    invisible opacity-0 
-                    group-hover:visible group-hover:opacity-100
-                    transition-all duration-200 ease-out
-                    z-[9999] pointer-events-none whitespace-nowrap
-                    bg-zinc-800 text-white text-[10px] font-medium px-2 py-1 rounded border border-white/10 shadow-xl"
-                  >
-                    {mood.label}
-                    {/* Petite flèche vers le bas */}
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"></div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Bouton Play */}
-        {onPlay && localAlbum.links.spotify_id && (
+      {/* Barre LISTEN (Sticky Bottom) */}
+      {onPlay && localAlbum.links.spotify_id && (
+        <div className="absolute bottom-0 left-0 right-0 z-50 h-12 bg-zinc-950/80 backdrop-blur border-t border-white/10 flex items-center justify-end px-4">
           <button 
             onClick={onPlay}
-            className="w-full bg-white text-black font-bold h-12 rounded hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-4"
+            className="text-white hover:text-amber-500 transition-colors flex items-center gap-2 font-mono text-xs"
           >
-            <Play className="w-4 h-4 fill-current" />
-            PLAY ON SPOTIFY
+            <Play className="w-3 h-3" />
+            LISTEN
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Toast d'erreur */}
       {errorToast && (

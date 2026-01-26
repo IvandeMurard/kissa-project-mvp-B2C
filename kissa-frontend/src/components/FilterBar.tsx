@@ -24,6 +24,8 @@ export function FilterBar({
 }: FilterBarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { moodOptions } = useMoodContext();
+  const [hoveredMood, setHoveredMood] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Fonction pour positionner le tooltip intelligemment
   const getTooltipPosition = (index: number) => {
@@ -142,6 +144,18 @@ export function FilterBar({
                       sounds?.playSwitch();
                       handleMoodClick(mood.color);
                     }}
+                    onMouseEnter={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setTooltipPosition({
+                        x: rect.left + rect.width / 2,
+                        y: rect.top - 8
+                      });
+                      setHoveredMood(mood.color);
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredMood(null);
+                      setTooltipPosition(null);
+                    }}
                     className="group relative cursor-pointer"
                   >
                     {/* Cercle de couleur - Plus gros sur mobile */}
@@ -156,19 +170,27 @@ export function FilterBar({
                         border: mood.color === '#171717' ? '1px solid white' : 'none',
                       }}
                     />
-
-                    {/* Tooltip Smart Anchor */}
-                    <span
-                      className={`absolute top-full mt-2 hidden opacity-0 group-hover:block group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 whitespace-nowrap bg-black/90 text-white text-[10px] px-2 py-1 rounded shadow-lg border border-white/10 ${getTooltipPosition(index)}`}
-                    >
-                      {mood.shortLabel}
-                      {/* Flèche pointant vers le haut */}
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-b-[4px] border-transparent border-b-black/90"></div>
-                    </span>
                   </button>
                 );
               })}
             </div>
+            {/* Tooltip avec position fixed */}
+            {hoveredMood && tooltipPosition && (
+              <div
+                className="fixed z-[9999] pointer-events-none whitespace-nowrap bg-zinc-800 text-white text-[10px] font-medium px-2 py-1 rounded border border-white/10 shadow-xl"
+                style={{
+                  left: `${tooltipPosition.x}px`,
+                  top: `${tooltipPosition.y}px`,
+                  transform: 'translate(-50%, -100%)',
+                  opacity: hoveredMood ? 1 : 0,
+                  transition: 'opacity 200ms ease-out'
+                }}
+              >
+                {moodOptions.find(m => m.color === hoveredMood)?.shortLabel || moodOptions.find(m => m.color === hoveredMood)?.label}
+                {/* Flèche */}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"></div>
+              </div>
+            )}
           </div>
 
           {/* Section GENRES - Flex wrap */}
@@ -261,6 +283,18 @@ export function FilterBar({
                   sounds?.playSwitch();
                   handleMoodClick(mood.color);
                 }}
+                onMouseEnter={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setTooltipPosition({
+                    x: rect.left + rect.width / 2,
+                    y: rect.top - 8
+                  });
+                  setHoveredMood(mood.color);
+                }}
+                onMouseLeave={() => {
+                  setHoveredMood(null);
+                  setTooltipPosition(null);
+                }}
                 className="group relative cursor-pointer"
               >
                 {/* Cercle de couleur */}
@@ -275,19 +309,27 @@ export function FilterBar({
                     border: mood.color === '#171717' ? '1px solid white' : 'none',
                   }}
                 />
-
-                {/* Tooltip Smart Anchor */}
-                <span
-                  className={`absolute top-full mt-2 hidden opacity-0 group-hover:block group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 whitespace-nowrap bg-black/90 text-white text-[10px] px-2 py-1 rounded shadow-lg border border-white/10 ${getTooltipPosition(index)}`}
-                >
-                  {mood.label}
-                  {/* Flèche pointant vers le haut */}
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-b-[4px] border-transparent border-b-black/90"></div>
-                </span>
               </button>
             );
           })}
         </div>
+        {/* Tooltip avec position fixed pour desktop */}
+        {hoveredMood && tooltipPosition && (
+          <div
+            className="fixed z-[9999] pointer-events-none whitespace-nowrap bg-zinc-800 text-white text-[10px] font-medium px-2 py-1 rounded border border-white/10 shadow-xl"
+            style={{
+              left: `${tooltipPosition.x}px`,
+              top: `${tooltipPosition.y}px`,
+              transform: 'translate(-50%, -100%)',
+              opacity: hoveredMood ? 1 : 0,
+              transition: 'opacity 200ms ease-out'
+            }}
+          >
+            {moodOptions.find(m => m.color === hoveredMood)?.label}
+            {/* Flèche */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"></div>
+          </div>
+        )}
       </div>
     </>
   );
