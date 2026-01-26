@@ -58,6 +58,7 @@ export function AlbumDetailView({
   );
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [storyError, setStoryError] = useState<string | null>(null);
 
   // Synchroniser localAlbum et optimisticFocusIndices avec initialAlbum si l'album change
   useEffect(() => {
@@ -93,6 +94,7 @@ export function AlbumDetailView({
   // Fonction pour générer les notes éditoriales
   const handleGenerateNotes = async (albumId: string) => {
     setIsGeneratingNotes(true);
+    setStoryError(null);
 
     try {
       const response = await fetch(`${API_URL}/albums/${albumId}/generate-notes`, {
@@ -101,7 +103,10 @@ export function AlbumDetailView({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Erreur ${response.status}`);
+        const errorMessage = errorData.detail || `Erreur ${response.status}`;
+        setStoryError(errorMessage === "AI busy, try again" ? errorMessage : "AI busy, try again");
+        console.error("❌ Erreur lors de la génération de notes:", errorMessage);
+        return;
       }
 
       const result = await response.json();
@@ -114,8 +119,12 @@ export function AlbumDetailView({
       if (onUpdateAlbum) {
         onUpdateAlbum(updated);
       }
+      
+      // Réinitialiser l'erreur en cas de succès
+      setStoryError(null);
     } catch (error) {
       console.error("❌ Erreur lors de la génération de notes:", error);
+      setStoryError("AI busy, try again");
     } finally {
       setIsGeneratingNotes(false);
     }
@@ -386,156 +395,149 @@ export function AlbumDetailView({
   const artistSize = compact ? "text-xs" : "text-lg";
   const tabSize = compact ? "text-xs" : "text-sm";
   const contentSize = compact ? "text-xs" : "text-sm";
-  const padding = compact ? "p-3" : "p-6";
 
   return (
-    <div className={`flex flex-col flex-1 h-full min-h-0 ${padding} relative`}>
-      {/* Header */}
-      <div className={`mb-4 ${compact ? 'mb-2' : ''} ${showActions && !compact ? 'pr-8' : ''} ${
-        activeTab === "story" ? "md:mb-4" : ""
-      }`}>
-        {activeTab === "story" && (
-          <div className="flex items-center gap-3 mb-2 md:hidden transition-opacity duration-300">
-            <img 
-              src={localAlbum.display.cover_image || "/placeholder.png"} 
-              alt={localAlbum.display.title}
-              className="w-10 h-10 rounded object-cover"
-            />
-          </div>
-        )}
-        <h3 className={`${headerSize} font-bold text-white leading-tight mb-1`}>
-          {localAlbum.display.title}
-        </h3>
-        <p className={`${artistSize} text-zinc-400`}>
-          {localAlbum.display.artist}
-        </p>
-      </div>
-
-      {/* Tags */}
-      <div className={`flex flex-wrap gap-2 ${compact ? 'mb-2' : 'mb-4'}`}>
-        {localAlbum.details.year && (
-          <span className="amp-label bg-zinc-800 text-zinc-300 px-2 py-1 rounded text-xs">
-            {localAlbum.details.year}
-          </span>
-        )}
-        {localAlbum.details.genre && localAlbum.details.genre.length > 0 && (
-          localAlbum.details.genre.map((genre, i) => (
-            <span key={i} className="amp-label bg-zinc-800 text-zinc-300 px-2 py-1 rounded text-xs">
-              {genre}
-            </span>
-          ))
-        )}
-      </div>
-
-      {/* Onglets */}
-      <div className={`flex gap-6 ${compact ? 'mb-3' : 'mb-6'} border-b border-white/10`}>
-        <button
-          onClick={() => {
-            setActiveTab("tracklist");
-            onTabChange?.("tracklist");
-          }}
-          className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
-            activeTab === "tracklist"
-              ? "text-white border-b-2 border-white"
-              : "text-zinc-400 hover:text-zinc-300"
-          }`}
-        >
-          TRACKLIST
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("sleeve");
-            onTabChange?.("sleeve");
-          }}
-          className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
-            activeTab === "sleeve"
-              ? "text-white border-b-2 border-white"
-              : "text-zinc-400 hover:text-zinc-300"
-          }`}
-        >
-          SLEEVE NOTES
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("story");
-            onTabChange?.("story");
-          }}
-          className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
-            activeTab === "story"
-              ? "text-white border-b-2 border-white"
-              : "text-zinc-400 hover:text-zinc-300"
-          }`}
-        >
-          STORY
-        </button>
-      </div>
-
-      {/* Contenu des onglets */}
-      <div className={`flex-1 min-h-0 ${
-        activeTab === "sleeve" 
-          ? "overflow-hidden flex flex-col" 
-          : compact 
-            ? "" 
-            : "overflow-y-auto"
-      }`}>
-        {activeTab === "tracklist" ? (
-          /* Onglet TRACKLIST */
-          localAlbum.details.tracklist && localAlbum.details.tracklist.length > 0 ? (
-            <ul className={compact ? "space-y-0" : "space-y-1"} role="list">
-              {localAlbum.details.tracklist.map((track, i) => {
-                const isFocus = optimisticFocusIndices.includes(i);
-                return (
-                  <li
-                    key={i}
-                    onClick={() => handleToggleFocusTrack(localAlbum.id, i)}
-                    className="flex items-center w-full py-1 cursor-pointer group border-l border-transparent hover:border-amber-500/40 pl-2 transition-all"
-                  >
-                    <span
-                      className={`w-8 flex-shrink-0 font-mono ${isFocus ? "text-[#FFB347] font-bold" : "text-zinc-600"}`}
-                    >
-                      {i + 1}.
-                    </span>
-                    <span
-                      className={`flex-1 font-sans ${isFocus ? "text-[#FFB347] font-medium" : "text-zinc-300 group-hover:text-zinc-100"}`}
-                    >
-                      {track}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <div className={`${contentSize} space-y-4`}>
-              <p className="text-zinc-500">Aucune piste disponible</p>
-              {localAlbum.links.spotify_url && (
-                <button
-                  onClick={handleRefetchTracklist}
-                  disabled={isRefetchingTracklist}
-                  className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-white text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isRefetchingTracklist ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Récupération en cours...</span>
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4" />
-                      <span>Récupérer la tracklist depuis Spotify</span>
-                    </>
-                  )}
-                </button>
-              )}
-              {!localAlbum.links.spotify_url && (
-                <p className="text-zinc-600 text-xs">Aucun lien Spotify disponible pour cet album</p>
-              )}
+    <div className="flex flex-col h-full relative overflow-hidden">
+      {/* Zone A : Contenu scrollable (Haut) */}
+      <div className="flex-1 overflow-y-auto scrollbar-hide p-4 pb-24">
+        {/* Header */}
+        <div className={`mb-4 ${compact ? 'mb-2' : ''} ${showActions && !compact ? 'pr-8' : ''} ${
+          activeTab === "story" ? "md:mb-4" : ""
+        }`}>
+          {activeTab === "story" && (
+            <div className="flex items-center gap-3 mb-2 md:hidden transition-opacity duration-300">
+              <img 
+                src={localAlbum.display.cover_image || "/placeholder.png"} 
+                alt={localAlbum.display.title}
+                className="w-10 h-10 rounded object-cover"
+              />
             </div>
-          )
-        ) : activeTab === "sleeve" ? (
-          /* Onglet SLEEVE NOTES - Layout en deux zones : scrollable (haut) et fixe (bas) */
-          <div className="flex flex-col h-full min-h-0 relative overflow-hidden transition-opacity duration-300">
-            {/* Zone 1 : Contenu scrollable */}
-            <div className="flex-1 overflow-y-auto p-1 pb-4">
+          )}
+          <h3 className={`${headerSize} font-bold text-white leading-tight mb-1`}>
+            {localAlbum.display.title}
+          </h3>
+          <p className={`${artistSize} text-zinc-400`}>
+            {localAlbum.display.artist}
+          </p>
+        </div>
+
+        {/* Tags */}
+        <div className={`flex flex-wrap gap-2 ${compact ? 'mb-2' : 'mb-4'}`}>
+          {localAlbum.details.year && (
+            <span className="amp-label bg-zinc-800 text-zinc-300 px-2 py-1 rounded text-xs">
+              {localAlbum.details.year}
+            </span>
+          )}
+          {localAlbum.details.genre && localAlbum.details.genre.length > 0 && (
+            localAlbum.details.genre.map((genre, i) => (
+              <span key={i} className="amp-label bg-zinc-800 text-zinc-300 px-2 py-1 rounded text-xs">
+                {genre}
+              </span>
+            ))
+          )}
+        </div>
+
+        {/* Onglets */}
+        <div className={`flex gap-6 ${compact ? 'mb-3' : 'mb-6'} border-b border-white/10`}>
+          <button
+            onClick={() => {
+              setActiveTab("tracklist");
+              onTabChange?.("tracklist");
+            }}
+            className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
+              activeTab === "tracklist"
+                ? "text-white border-b-2 border-white"
+                : "text-zinc-400 hover:text-zinc-300"
+            }`}
+          >
+            TRACKLIST
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("sleeve");
+              onTabChange?.("sleeve");
+            }}
+            className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
+              activeTab === "sleeve"
+                ? "text-white border-b-2 border-white"
+                : "text-zinc-400 hover:text-zinc-300"
+            }`}
+          >
+            SLEEVE NOTES
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("story");
+              onTabChange?.("story");
+            }}
+            className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
+              activeTab === "story"
+                ? "text-white border-b-2 border-white"
+                : "text-zinc-400 hover:text-zinc-300"
+            }`}
+          >
+            STORY
+          </button>
+        </div>
+
+        {/* Contenu des onglets */}
+        <div>
+          {activeTab === "tracklist" ? (
+            /* Onglet TRACKLIST */
+            localAlbum.details.tracklist && localAlbum.details.tracklist.length > 0 ? (
+              <ul className={compact ? "space-y-0" : "space-y-1"} role="list">
+                {localAlbum.details.tracklist.map((track, i) => {
+                  const isFocus = optimisticFocusIndices.includes(i);
+                  return (
+                    <li
+                      key={i}
+                      onClick={() => handleToggleFocusTrack(localAlbum.id, i)}
+                      className="flex items-center w-full py-1 cursor-pointer group border-l border-transparent hover:border-amber-500/40 pl-2 transition-all"
+                    >
+                      <span
+                        className={`w-8 flex-shrink-0 font-mono ${isFocus ? "text-[#FFB347] font-bold" : "text-zinc-600"}`}
+                      >
+                        {i + 1}.
+                      </span>
+                      <span
+                        className={`flex-1 font-sans ${isFocus ? "text-[#FFB347] font-medium" : "text-zinc-300 group-hover:text-zinc-100"}`}
+                      >
+                        {track}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className={`${contentSize} space-y-4`}>
+                <p className="text-zinc-500">Aucune piste disponible</p>
+                {localAlbum.links.spotify_url && (
+                  <button
+                    onClick={handleRefetchTracklist}
+                    disabled={isRefetchingTracklist}
+                    className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-white text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isRefetchingTracklist ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Récupération en cours...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        <span>Récupérer la tracklist depuis Spotify</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                {!localAlbum.links.spotify_url && (
+                  <p className="text-zinc-600 text-xs">Aucun lien Spotify disponible pour cet album</p>
+                )}
+              </div>
+            )
+          ) : activeTab === "sleeve" ? (
+            /* Onglet SLEEVE NOTES - Simplifié */
+            <div className="transition-opacity duration-300">
               {/* Section Acquisition Log */}
               <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
                 <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
@@ -629,158 +631,179 @@ export function AlbumDetailView({
                 </div>
               </div>
             </div>
-
-            {/* Zone 2 : Footer fixe */}
-            <div className="flex-shrink-0 pt-4 pb-2 mt-auto border-t border-white/5 bg-black/50 backdrop-blur-sm z-20 sticky bottom-0">
-              {/* Section VIBE / ENERGY */}
-              <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
-                <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
-                  VIBE / ENERGY
+          ) : (
+            /* Onglet STORY - Editorial uniquement */
+            <div className={`${compact ? 'space-y-3' : activeTab === "story" ? 'flex-1 flex flex-col' : 'space-y-6'}`}>
+              {/* Section Editorial */}
+              <div className={`${compact ? 'bg-zinc-900/80 border border-zinc-800/50 p-4' : activeTab === "story" ? 'bg-white/5 border border-zinc-800/30 p-6 md:p-10 flex-1 flex flex-col' : 'bg-white/5 border border-zinc-800/30 p-10'} rounded-lg transition-opacity duration-300`}>
+                <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-3' : 'mb-4'} amp-label ${
+                  activeTab === "story" ? "hidden md:block" : ""
+                }`}>
+                  Editorial
                 </h4>
-                <div className="flex flex-wrap gap-3 overflow-visible">
-                  {moodOptions.map((mood, index) => {
-                    const isSelected = optimisticMoodColors.includes(mood.color);
-                    
-                    return (
-                      <button
-                        key={mood.color}
-                        onClick={() => {
-                          const newColors = isSelected
-                            ? optimisticMoodColors.filter(c => c !== mood.color)
-                            : [...optimisticMoodColors, mood.color];
-                          handleUpdateMoodColors(localAlbum.id, newColors);
-                        }}
-                        className="group relative cursor-pointer hover:z-[100]"
-                      >
-                        {/* Cercle de couleur */}
-                        <div
-                          className={`${compact ? 'w-5 h-5' : 'w-6 h-6'} rounded-full transition-all duration-200 ${
-                            isSelected
-                              ? 'ring-2 ring-white ring-offset-2 ring-offset-zinc-900'
-                              : 'opacity-80 hover:opacity-100 hover:scale-110'
-                          }`}
-                          style={{
-                            backgroundColor: mood.color,
-                            border: mood.color === '#171717' ? '1px solid white' : 'none',
-                          }}
-                        />
-                        
-                        {/* Tooltip - Caché sauf au hover du groupe parent */}
-                        <div className={`absolute bottom-full mb-3 
-                                        ${index === 0 ? 'left-0' : index === moodOptions.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'}
-                                        hidden opacity-0 group-hover:block group-hover:opacity-100 
-                                        transition-all duration-200 ease-in-out z-50 pointer-events-none
-                                        bg-zinc-800 text-zinc-200 text-[10px] px-2 py-1 rounded border border-zinc-700 whitespace-nowrap`}>
-                          {mood.label}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                {localAlbum.editorial_notes ? (
+                  <div className="flex-1 flex flex-col">
+                    <div 
+                      className={`${
+                        compact 
+                          ? 'text-sm leading-relaxed' 
+                          : activeTab === "story" 
+                            ? 'text-lg md:text-xl leading-relaxed md:leading-loose px-0 md:px-0' 
+                            : 'text-xl leading-loose'
+                      } text-zinc-300 text-justify space-y-3 flex-1`}
+                      style={{ fontFamily: "var(--font-serif)" }}
+                    >
+                      {renderMarkdown(localAlbum.editorial_notes)}
+                    </div>
+                    {!compact && (
+                      <div className="amp-label text-xs text-zinc-500 mt-6 italic">
+                        — ARCHIVED IN KISSA
+                      </div>
+                    )}
+                  </div>
+                ) : isGeneratingNotes ? (
+                  /* Skeleton loader pendant la génération */
+                  <div className={`flex flex-col ${compact ? 'py-4' : 'py-8'}`}>
+                    <div className="flex items-center justify-center gap-2 mb-6 text-zinc-400 text-sm">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Digging in the crates...</span>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="bg-zinc-800 rounded h-4 animate-pulse w-full"></div>
+                      <div className="bg-zinc-800 rounded h-4 animate-pulse w-5/6"></div>
+                      <div className="bg-zinc-800 rounded h-4 animate-pulse w-full"></div>
+                      <div className="bg-zinc-800 rounded h-4 animate-pulse w-4/5"></div>
+                      <div className="bg-zinc-800 rounded h-4 animate-pulse w-3/4"></div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`flex flex-col items-center justify-center ${compact ? 'py-4' : 'py-8'} gap-4`}>
+                    {storyError && (
+                      <div className="text-red-400 text-sm text-center max-w-md">
+                        {storyError}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handleGenerateNotes(localAlbum.id)}
+                      disabled={isGeneratingNotes}
+                      className={`border border-zinc-600 hover:border-zinc-400 text-zinc-300 hover:text-white ${compact ? 'py-2 px-4 text-xs' : 'py-3 px-6 text-sm'} font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed rounded-sm`}
+                    >
+                      {isGeneratingNotes ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          {compact ? "Loading..." : "Digging in the crates..."}
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          GENERATE STORY
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        ) : (
-          /* Onglet STORY - Editorial uniquement */
-          <div className={`${compact ? 'space-y-3' : activeTab === "story" ? 'flex-1 flex flex-col' : 'space-y-6'}`}>
-            {/* Section Editorial */}
-            <div className={`${compact ? 'bg-zinc-900/80 border border-zinc-800/50 p-4' : activeTab === "story" ? 'bg-white/5 border border-zinc-800/30 p-6 md:p-10 flex-1 flex flex-col' : 'bg-white/5 border border-zinc-800/30 p-10'} rounded-lg transition-opacity duration-300`}>
-              <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-3' : 'mb-4'} amp-label ${
-                activeTab === "story" ? "hidden md:block" : ""
-              }`}>
-                Editorial
-              </h4>
-              {localAlbum.editorial_notes ? (
-                <div className="flex-1 flex flex-col">
-                  <div 
-                    className={`${
-                      compact 
-                        ? 'text-sm leading-relaxed' 
-                        : activeTab === "story" 
-                          ? 'text-lg md:text-xl leading-relaxed md:leading-loose px-0 md:px-0' 
-                          : 'text-xl leading-loose'
-                    } text-zinc-300 text-justify space-y-3 flex-1`}
-                    style={{ fontFamily: "var(--font-serif)" }}
-                  >
-                    {renderMarkdown(localAlbum.editorial_notes)}
-                  </div>
-                  {!compact && (
-                    <div className="amp-label text-xs text-zinc-500 mt-6 italic">
-                      — ARCHIVED IN KISSA
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className={`flex flex-col items-center justify-center ${compact ? 'py-4' : 'py-8'}`}>
-                  <button
-                    onClick={() => handleGenerateNotes(localAlbum.id)}
-                    disabled={isGeneratingNotes}
-                    className={`border border-zinc-600 hover:border-zinc-400 text-zinc-300 hover:text-white ${compact ? 'py-2 px-4 text-xs' : 'py-3 px-6 text-sm'} font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed rounded-sm`}
-                  >
-                    {isGeneratingNotes ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        {compact ? "Loading..." : "Digging into archives..."}
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4" />
-                        GENERATE NOTES
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        {showActions && (
+          <div className={`${compact ? 'mt-3' : 'mt-6'} flex flex-col gap-3`}>
+            {localAlbum.links.spotify_url && (
+              <a
+                href={localAlbum.links.spotify_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => sounds?.playVinylStart()}
+                className={`bg-[#1DB954] hover:bg-[#1ed760] text-white py-3 px-4 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 ${
+                  activeTab === "story" ? "hidden md:flex" : ""
+                }`}
+              >
+                <ExternalLink className="w-4 h-4" />
+                Listen on Spotify
+              </a>
+            )}
+            {isManageMode && onDelete && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (confirm("Supprimer cet album ?")) {
+                    haptic.heavy();
+                    onDelete();
+                  }
+                }}
+                className="amp-label bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-sm font-semibold transition-colors flex items-center justify-center gap-2 touch-manipulation"
+              >
+                <Trash2 className="w-4 h-4" />
+                DISCARD
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* Actions */}
-      {showActions && (
-        <div className={`${compact ? 'mt-3' : 'mt-6'} flex flex-col gap-3`}>
-          {localAlbum.links.spotify_url && (
-            <a
-              href={localAlbum.links.spotify_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => sounds?.playVinylStart()}
-              className={`bg-[#1DB954] hover:bg-[#1ed760] text-white py-3 px-4 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 ${
-                activeTab === "story" ? "hidden md:flex" : ""
-              }`}
-            >
-              <ExternalLink className="w-4 h-4" />
-              Listen on Spotify
-            </a>
-          )}
-          {isManageMode && onDelete && (
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                if (confirm("Supprimer cet album ?")) {
-                  haptic.heavy();
-                  onDelete();
-                }
-              }}
-              className="amp-label bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-sm font-semibold transition-colors flex items-center justify-center gap-2 touch-manipulation"
-            >
-              <Trash2 className="w-4 h-4" />
-              DISCARD
-            </button>
-          )}
+      {/* Zone B : Control Bar (Footer fixe) */}
+      <div className="flex-shrink-0 border-t border-white/10 bg-zinc-950/90 backdrop-blur-md p-4 z-50">
+        {/* Section Gommettes (Moods) */}
+        <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3 mb-3' : 'p-4 mb-4'}`}>
+          <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
+            VIBE / ENERGY
+          </h4>
+          <div className="flex flex-wrap gap-3 overflow-visible">
+            {moodOptions.map((mood, index) => {
+              const isSelected = optimisticMoodColors.includes(mood.color);
+              
+              return (
+                <button
+                  key={mood.color}
+                  onClick={() => {
+                    const newColors = isSelected
+                      ? optimisticMoodColors.filter(c => c !== mood.color)
+                      : [...optimisticMoodColors, mood.color];
+                    handleUpdateMoodColors(localAlbum.id, newColors);
+                  }}
+                  className="group relative cursor-pointer hover:z-[100]"
+                >
+                  {/* Cercle de couleur */}
+                  <div
+                    className={`${compact ? 'w-5 h-5' : 'w-6 h-6'} rounded-full transition-all duration-200 ${
+                      isSelected
+                        ? 'ring-2 ring-white ring-offset-2 ring-offset-zinc-900'
+                        : 'opacity-80 hover:opacity-100 hover:scale-110'
+                    }`}
+                    style={{
+                      backgroundColor: mood.color,
+                      border: mood.color === '#171717' ? '1px solid white' : 'none',
+                    }}
+                  />
+                  
+                  {/* Tooltip - S'ouvre vers le haut */}
+                  <div className={`absolute bottom-full mb-4 
+                                  ${index === 0 ? 'left-0' : index === moodOptions.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'}
+                                  hidden opacity-0 group-hover:block group-hover:opacity-100 
+                                  transition-all duration-200 ease-in-out z-50 pointer-events-none
+                                  bg-zinc-800 text-zinc-200 text-[10px] px-2 py-1 rounded border border-zinc-700 whitespace-nowrap`}>
+                    {mood.label}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      )}
 
-      {/* Bouton Play pour mode compact (hover desktop) */}
-      {compact && onPlay && localAlbum.links.spotify_id && (
-        <button 
-          onClick={onPlay}
-          className={`amp-label mt-3 w-full bg-white text-black ${compact ? 'py-2 text-xs' : 'py-3'} rounded-sm font-semibold hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2`}
-        >
-          <Play className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} fill-current`} /> PLAY
-        </button>
-      )}
+        {/* Bouton Play */}
+        {onPlay && localAlbum.links.spotify_id && (
+          <button 
+            onClick={onPlay}
+            className="w-full bg-white text-black hover:scale-[1.02] transition-transform py-3 rounded-sm font-semibold flex items-center justify-center gap-2"
+          >
+            <Play className="w-4 h-4 fill-current" />
+            PLAY ON SPOTIFY
+          </button>
+        )}
+      </div>
 
       {/* Toast d'erreur */}
       {errorToast && (

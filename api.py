@@ -214,26 +214,41 @@ async def generate_editorial_notes(album_id: str):
     Style critique musical expert (Rolling Stone / Pitchfork mais concis).
     """
     try:
+        # 0. Log de la requête reçue
+        print(f"📥 Requête reçue pour génération de story - Album ID: {album_id}")
+        
         # 1. Vérifier que le client OpenAI est disponible
         if not kissa.openai_client:
+            print("❌ OpenAI client non disponible")
             raise HTTPException(
                 status_code=500, 
                 detail="OpenAI client non disponible. Vérifiez OPENAI_API_KEY dans le .env"
             )
         
-        # 2. Récupérer l'album depuis Supabase
-        response = supabase.table("albums").select("id, artist, title").eq("id", album_id).execute()
+        # 2. Récupérer l'album depuis Supabase (avec year)
+        response = supabase.table("albums").select("id, artist, title, year").eq("id", album_id).execute()
         
         if not response.data or len(response.data) == 0:
+            print(f"❌ Album avec l'ID {album_id} introuvable")
             raise HTTPException(status_code=404, detail=f"Album avec l'ID {album_id} introuvable")
         
         album = response.data[0]
         artist = album.get("artist", "Artiste inconnu")
         title = album.get("title", "Titre inconnu")
+        year = album.get("year", "")
         
-        # 3. Construire le prompt pour GPT-4o
-        system_prompt = """Tu es le propriétaire d'un 'Jazz Kissa' (bar audiophile) à Tokyo. Tu es un expert musical passionné, poétique et précis.
-Ta mission est d'écrire une courte note de pochette (Liner Note) pour l'album : {artist} - {title}.
+        # 3. Validation des données
+        if not artist or artist.strip() == "" or not title or title.strip() == "":
+            print(f"❌ Données invalides - Artist: '{artist}', Title: '{title}'")
+            raise HTTPException(
+                status_code=400, 
+                detail="L'album doit avoir un artiste et un titre valides pour générer une story"
+            )
+        
+        # 4. Construire le prompt pour GPT-4o (formaté correctement)
+        year_info = f" ({year})" if year else ""
+        system_prompt = f"""Tu es le propriétaire d'un 'Jazz Kissa' (bar audiophile) à Tokyo. Tu es un expert musical passionné, poétique et précis.
+Ta mission est d'écrire une courte note de pochette (Liner Note) pour l'album : {artist} - {title}{year_info}.
 
 Règles de style :
 1. **Ton :** Intime, atmosphérique, narratif. Utilise le présent de narration. Ne sois pas scolaire.
@@ -249,8 +264,8 @@ Exemple de ton attendu : 'Dès les premières mesures de Space is Only Noise, on
 
         user_prompt = f"Écris un texte éditorial sur l'album '{title}' de {artist}."
         
-        # 4. Appeler GPT-4o
-        print(f"🤖 Génération de notes éditoriales pour {artist} - {title}...")
+        # 5. Appeler GPT-4o
+        print(f"🤖 Génération de notes éditoriales pour {artist} - {title}{year_info}...")
         openai_response = kissa.openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -263,12 +278,12 @@ Exemple de ton attendu : 'Dès les premières mesures de Space is Only Noise, on
         
         editorial_notes = openai_response.choices[0].message.content.strip()
         
-        # 5. Sauvegarder dans Supabase
+        # 6. Sauvegarder dans Supabase
         supabase.table("albums").update({"editorial_notes": editorial_notes}).eq("id", album_id).execute()
         
-        print(f"✅ Notes éditoriales générées et sauvegardées pour {album_id}")
+        print(f"✅ Notes éditoriales générées et sauvegardées pour {album_id} ({artist} - {title}{year_info})")
         
-        # 6. Retourner le résultat
+        # 7. Retourner le résultat
         return GenerateNotesResponse(
             editorial_notes=editorial_notes,
             album_id=album_id
