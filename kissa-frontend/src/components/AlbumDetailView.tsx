@@ -666,8 +666,10 @@ export function AlbumDetailView({
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                haptic.heavy();
-                onDelete();
+                if (confirm("Supprimer cet album ?")) {
+                  haptic.heavy();
+                  onDelete();
+                }
               }}
               className="amp-label bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-sm font-semibold transition-colors flex items-center justify-center gap-2 touch-manipulation"
             >

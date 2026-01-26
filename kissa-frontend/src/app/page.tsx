@@ -317,8 +317,6 @@ export default function Home() {
 
     if (!selectedAlbum) return;
 
-    haptic.heavy();
-
     try {
 
       const response = await fetch(`${API_URL}/album/${selectedAlbum.id}`, { method: "DELETE" });
@@ -657,7 +655,7 @@ export default function Home() {
             setCurrentView("SHELF");
             haptic.light();
           }}
-          className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors ${
+          className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors touch-manipulation ${
             currentView === "SHELF" ? "text-white" : "text-neutral-500"
           }`}
         >
@@ -669,7 +667,7 @@ export default function Home() {
             setCurrentView("DIG");
             haptic.light();
           }}
-          className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors ${
+          className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors touch-manipulation ${
             currentView === "DIG" ? "text-white" : "text-neutral-500"
           }`}
         >
@@ -681,7 +679,7 @@ export default function Home() {
             setCurrentView("SETUP");
             haptic.light();
           }}
-          className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors ${
+          className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors touch-manipulation ${
             currentView === "SETUP" ? "text-white" : "text-neutral-500"
           }`}
         >
@@ -708,7 +706,7 @@ export default function Home() {
                 haptic.light();
                 sounds.playSwitch();
               }}
-              className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all"
+              className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all touch-manipulation"
               title={isManageMode ? "Verrouiller" : "Déverrouiller"}
             >
               {isManageMode ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
@@ -850,7 +848,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                         setSelectedAlbum(album);
                       }
                     }}
-                    className={`w-full h-full object-cover transition-transform duration-500 ease-out md:relative md:z-10 md:group-hover:-translate-x-full group-hover:scale-110 md:group-hover:scale-100 cursor-pointer md:cursor-default ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
+                    className={`w-full h-full object-cover transition-transform duration-500 ease-out md:relative md:z-10 md:group-hover:-translate-x-full group-hover:scale-110 md:group-hover:scale-100 cursor-pointer md:cursor-default touch-manipulation ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
                   />
                   {/* Mood Colors Gommettes */}
                   {album.mood_colors && album.mood_colors.length > 0 && (
@@ -1202,7 +1200,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
               setShowManualSearch(true);
               haptic.light();
             }}
-            className="absolute top-6 right-6 flex items-center gap-2 text-neutral-400 hover:text-white transition-colors amp-label z-10"
+            className="absolute top-6 right-6 flex items-center gap-2 text-neutral-400 hover:text-white transition-colors amp-label z-10 touch-manipulation"
             title="Recherche manuelle"
           >
             <Search className="w-4 h-4" />
