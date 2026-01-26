@@ -15,6 +15,7 @@ from google.oauth2 import service_account
 import discogs_client
 
 import spotipy
+import spotipy.exceptions
 
 from spotipy.oauth2 import SpotifyClientCredentials
 
@@ -515,6 +516,11 @@ Ton but n'est pas juste de décrire, mais de créer la meilleure requête pour l
 
             
 
+        except spotipy.exceptions.SpotifyException as e:
+            print(f"   ❌ Erreur Spotify API pour album_id {album_id}: HTTP {getattr(e, 'http_status', 'N/A')} - {getattr(e, 'msg', str(e))}")
+            import traceback
+            print(f"   📋 Traceback: {traceback.format_exc()}")
+            return None
         except Exception as e:
 
             print(f"   ❌ Erreur récupération tracks Spotify pour album_id {album_id}: {type(e).__name__}: {e}")

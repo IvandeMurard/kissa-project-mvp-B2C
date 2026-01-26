@@ -571,6 +571,7 @@ async def refetch_album_tracks(album_id: str):
             spotify_album_id = spotify_url.split('/album/')[1].split('?')[0].split('/')[0]
             result["spotify_album_id"] = spotify_album_id
             result["steps"].append({"step": "extract_spotify_id", "status": "success", "message": f"ID extrait: {spotify_album_id}"})
+            print(f"   ✅ ID Spotify extrait avec succès: {spotify_album_id}")
         except (IndexError, AttributeError) as e:
             result["status"] = "failed"
             result["reason"] = f"Impossible d'extraire l'ID Spotify de l'URL: {str(e)}"
@@ -588,12 +589,17 @@ async def refetch_album_tracks(album_id: str):
         
         # 5. Récupérer les tracks depuis Spotify
         try:
+            print(f"   🔍 Tentative récupération tracks pour album_id Spotify: {spotify_album_id}")
+            print(f"   📋 Album: {artist} - {title}")
             tracks = kissa._fetch_spotify_tracks(spotify_album_id)
             
             if tracks is None:
+                # Logger plus de détails
+                print(f"   ⚠️ _fetch_spotify_tracks a retourné None pour {spotify_album_id}")
+                print(f"   ⚠️ Vérifiez les logs serveur pour plus de détails sur l'erreur")
                 result["status"] = "failed"
                 result["reason"] = "_fetch_spotify_tracks a retourné None (erreur silencieuse)"
-                result["steps"].append({"step": "fetch_tracks", "status": "failed", "message": "Aucune piste récupérée (None retourné)"})
+                result["steps"].append({"step": "fetch_tracks", "status": "failed", "message": "Aucune piste récupérée (None retourné). Vérifiez les logs serveur pour plus de détails."})
                 return result
             
             if len(tracks) == 0:
@@ -618,9 +624,18 @@ async def refetch_album_tracks(album_id: str):
             return result
             
         except Exception as e:
+            import traceback
+            error_traceback = traceback.format_exc()
+            print(f"   ❌ Exception lors de la récupération de tracks: {type(e).__name__}: {e}")
+            print(f"   📋 Traceback complet:\n{error_traceback}")
             result["status"] = "failed"
             result["reason"] = f"Erreur lors de la récupération: {str(e)}"
-            result["steps"].append({"step": "fetch_tracks", "status": "error", "message": str(e)})
+            result["steps"].append({"step": "fetch_tracks", "status": "error", "message": f"{type(e).__name__}: {str(e)}"})
+            result["error_details"] = {
+                "exception_type": type(e).__name__,
+                "exception_message": str(e),
+                "traceback": error_traceback
+            }
             return result
         
     except HTTPException as he:
