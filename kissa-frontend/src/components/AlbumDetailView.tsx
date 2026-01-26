@@ -574,7 +574,7 @@ export function AlbumDetailView({
                       
                       {/* Tooltip en dessous */}
                       <span
-                        className={`absolute top-full mt-2 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 whitespace-nowrap bg-black/90 text-white text-[10px] px-2 py-1 rounded shadow-lg border border-white/10 ${getTooltipPosition()}`}
+                        className={`absolute top-full mt-2 hidden opacity-0 group-hover:block group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 whitespace-nowrap bg-black/90 text-white text-[10px] px-2 py-1 rounded shadow-lg border border-white/10 ${getTooltipPosition()}`}
                       >
                         {mood.shortLabel}
                         {/* Flèche pointant vers le haut */}
