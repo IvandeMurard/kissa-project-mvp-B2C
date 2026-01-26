@@ -397,9 +397,9 @@ export function AlbumDetailView({
   const contentSize = compact ? "text-xs" : "text-sm";
 
   return (
-    <div className="flex flex-col h-full relative overflow-hidden">
+    <div className="flex flex-col h-full relative overflow-hidden bg-zinc-950">
       {/* Zone A : Contenu scrollable (Haut) */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide p-4 pb-24">
+      <div className="flex-1 overflow-y-auto scrollbar-hide p-4 pb-40">
         {/* Header */}
         <div className={`mb-4 ${compact ? 'mb-2' : ''} ${showActions && !compact ? 'pr-8' : ''} ${
           activeTab === "story" ? "md:mb-4" : ""
@@ -745,14 +745,14 @@ export function AlbumDetailView({
       </div>
 
       {/* Zone B : Control Bar (Footer fixe) */}
-      <div className="flex-shrink-0 border-t border-white/10 bg-zinc-950/90 backdrop-blur-md p-4 z-50">
+      <div className="absolute bottom-0 left-0 right-0 z-50 bg-zinc-950/95 backdrop-blur-xl border-t border-white/10 p-4">
         {/* Section Gommettes (Moods) */}
         <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3 mb-3' : 'p-4 mb-4'}`}>
           <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
             VIBE / ENERGY
           </h4>
           <div className="flex flex-wrap gap-3 overflow-visible">
-            {moodOptions.map((mood, index) => {
+            {moodOptions.map((mood) => {
               const isSelected = optimisticMoodColors.includes(mood.color);
               
               return (
@@ -764,28 +764,26 @@ export function AlbumDetailView({
                       : [...optimisticMoodColors, mood.color];
                     handleUpdateMoodColors(localAlbum.id, newColors);
                   }}
-                  className="group relative cursor-pointer hover:z-[100]"
+                  className="group relative flex items-center justify-center w-8 h-8 outline-none cursor-pointer"
                 >
-                  {/* Cercle de couleur */}
-                  <div
-                    className={`${compact ? 'w-5 h-5' : 'w-6 h-6'} rounded-full transition-all duration-200 ${
-                      isSelected
-                        ? 'ring-2 ring-white ring-offset-2 ring-offset-zinc-900'
-                        : 'opacity-80 hover:opacity-100 hover:scale-110'
-                    }`}
-                    style={{
-                      backgroundColor: mood.color,
-                      border: mood.color === '#171717' ? '1px solid white' : 'none',
-                    }}
+                  {/* Le Cercle */}
+                  <div 
+                    className={`w-4 h-4 rounded-full transition-transform duration-200 group-hover:scale-125 ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-black' : 'opacity-60 hover:opacity-100'}`}
+                    style={{ backgroundColor: mood.color }}
                   />
                   
-                  {/* Tooltip - S'ouvre vers le haut */}
-                  <div className={`absolute bottom-full mb-4 
-                                  ${index === 0 ? 'left-0' : index === moodOptions.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'}
-                                  hidden opacity-0 group-hover:block group-hover:opacity-100 
-                                  transition-all duration-200 ease-in-out z-50 pointer-events-none
-                                  bg-zinc-800 text-zinc-200 text-[10px] px-2 py-1 rounded border border-zinc-700 whitespace-nowrap`}>
+                  {/* Le Tooltip (Fixé) */}
+                  <div className="
+                    absolute bottom-full mb-3 left-1/2 -translate-x-1/2
+                    invisible opacity-0 
+                    group-hover:visible group-hover:opacity-100
+                    transition-all duration-200 ease-out
+                    z-[9999] pointer-events-none whitespace-nowrap
+                    bg-zinc-800 text-white text-[10px] font-medium px-2 py-1 rounded border border-white/10 shadow-xl"
+                  >
                     {mood.label}
+                    {/* Petite flèche vers le bas */}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"></div>
                   </div>
                 </button>
               );
@@ -797,7 +795,7 @@ export function AlbumDetailView({
         {onPlay && localAlbum.links.spotify_id && (
           <button 
             onClick={onPlay}
-            className="w-full bg-white text-black hover:scale-[1.02] transition-transform py-3 rounded-sm font-semibold flex items-center justify-center gap-2"
+            className="w-full bg-white text-black font-bold h-12 rounded hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-4"
           >
             <Play className="w-4 h-4 fill-current" />
             PLAY ON SPOTIFY
