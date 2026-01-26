@@ -471,7 +471,7 @@ export function AlbumDetailView({
       </div>
 
       {/* Contenu des onglets */}
-      <div className={`flex-1 ${
+      <div className={`flex-1 min-h-0 ${
         activeTab === "sleeve" 
           ? "overflow-hidden flex flex-col" 
           : compact 
@@ -533,9 +533,9 @@ export function AlbumDetailView({
           )
         ) : activeTab === "sleeve" ? (
           /* Onglet SLEEVE NOTES - Layout en deux zones : scrollable (haut) et fixe (bas) */
-          <div className="flex flex-col h-full relative overflow-hidden transition-opacity duration-300">
+          <div className="flex flex-col h-full min-h-0 relative overflow-hidden transition-opacity duration-300">
             {/* Zone 1 : Contenu scrollable */}
-            <div className="flex-1 overflow-y-auto p-1 pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+            <div className="flex-1 overflow-y-auto p-1 pb-4 scrollbar-hide">
               {/* Section Acquisition Log */}
               <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
                 <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
@@ -631,7 +631,7 @@ export function AlbumDetailView({
             </div>
 
             {/* Zone 2 : Footer fixe */}
-            <div className="flex-shrink-0 pt-4 mt-auto border-t border-white/5 bg-black/50 backdrop-blur-sm z-20">
+            <div className="flex-shrink-0 pt-4 pb-2 mt-auto border-t border-white/5 bg-black/50 backdrop-blur-sm z-20 sticky bottom-0">
               {/* Section VIBE / ENERGY */}
               <div className={`bg-zinc-800/50 border border-zinc-700/50 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
                 <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-2' : 'mb-3'} amp-label`}>
