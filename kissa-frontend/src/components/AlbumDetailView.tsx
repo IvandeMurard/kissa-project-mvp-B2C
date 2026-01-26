@@ -648,8 +648,8 @@ export function AlbumDetailView({
             </div>
           ) : activeTab === "vibe" ? (
             /* Onglet VIBE - Gommettes centrées */
-            <div className="flex items-start justify-center min-h-[400px] pt-16">
-              <div className="flex flex-wrap justify-center gap-4 max-w-2xl">
+            <div className="flex items-start justify-center py-12">
+              <div className="grid grid-cols-3 gap-6 max-w-md">
                 {moodOptions.map((mood) => {
                   const isSelected = optimisticMoodColors.includes(mood.color);
                   return (
@@ -665,7 +665,7 @@ export function AlbumDetailView({
                         const rect = e.currentTarget.getBoundingClientRect();
                         setTooltipPositionVibe({
                           x: rect.left + rect.width / 2,
-                          y: rect.top - 8
+                          y: rect.bottom + 8
                         });
                         setHoveredMoodVibe(mood.color);
                       }}
@@ -695,14 +695,14 @@ export function AlbumDetailView({
                   style={{
                     left: `${tooltipPositionVibe.x}px`,
                     top: `${tooltipPositionVibe.y}px`,
-                    transform: 'translate(-50%, -100%)',
+                    transform: 'translate(-50%, 0)',
                     opacity: hoveredMoodVibe ? 1 : 0,
                     transition: 'opacity 200ms ease-out'
                   }}
                 >
                   {moodOptions.find(m => m.color === hoveredMoodVibe)?.label}
-                  {/* Flèche */}
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"></div>
+                  {/* Flèche pointant vers le haut */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-zinc-800"></div>
                 </div>
               )}
             </div>
