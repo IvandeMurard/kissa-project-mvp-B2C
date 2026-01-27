@@ -19,20 +19,21 @@ export const useRemoteControl = (
       console.debug('Supabase client not available for broadcasting');
       return;
     }
-    
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    
+    const client = supabase;
+
+    let channel: ReturnType<typeof client.channel> | null = null;
+
     try {
-      channel = supabase.channel('kissa-room');
+      channel = client.channel('kissa-room');
       const channelRef = channel; // Référence locale pour le callback
-      
+
       // Timeout pour éviter que le channel reste ouvert indéfiniment
       const timeoutId = setTimeout(() => {
         if (channelRef) {
-          supabase.removeChannel(channelRef);
+          client.removeChannel(channelRef);
         }
       }, 5000); // 5 secondes max
-      
+
       await channelRef.subscribe(async (status: ChannelStatus) => {
         if (status === 'SUBSCRIBED') {
           try {
@@ -44,25 +45,22 @@ export const useRemoteControl = (
           } catch (sendError) {
             console.debug('Error sending broadcast:', sendError);
           } finally {
-            // On se désabonne tout de suite après l'envoi pour ne pas laisser traîner
             clearTimeout(timeoutId);
             if (channelRef) {
-              supabase.removeChannel(channelRef);
+              client.removeChannel(channelRef);
             }
           }
         } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
-          // Nettoyer en cas d'erreur ou de fermeture
           clearTimeout(timeoutId);
           if (channelRef) {
-            supabase.removeChannel(channelRef);
+            client.removeChannel(channelRef);
           }
         }
       });
     } catch (error) {
-      // Gérer silencieusement les erreurs de connexion (ne pas bloquer l'UI)
       console.debug('Error broadcasting selection:', error);
       if (channel) {
-        supabase.removeChannel(channel);
+        client.removeChannel(channel);
       }
     }
   }, []);
