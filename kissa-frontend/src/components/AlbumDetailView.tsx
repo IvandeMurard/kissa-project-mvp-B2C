@@ -29,6 +29,8 @@ interface AlbumDetailViewProps {
   sounds?: { playVinylStart: () => void };
   compact?: boolean;
   onTabChange?: (tab: "tracklist" | "sleeve" | "story" | "vibe") => void;
+  /** Quand fourni, l'onglet actif est contrôlé par le parent (ex. modale). */
+  activeTab?: "tracklist" | "sleeve" | "story" | "vibe";
 }
 
 export function AlbumDetailView({
@@ -43,10 +45,12 @@ export function AlbumDetailView({
   sounds,
   compact = false,
   onTabChange,
+  activeTab: activeTabControlled,
 }: AlbumDetailViewProps) {
   const { moodOptions } = useMoodContext();
   const haptic = useHaptic();
-  const [activeTab, setActiveTab] = useState<"tracklist" | "sleeve" | "story" | "vibe">("tracklist");
+  const [internalTab, setInternalTab] = useState<"tracklist" | "sleeve" | "story" | "vibe">("tracklist");
+  const tab = activeTabControlled ?? internalTab;
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
   const [isSavingPurchaseData, setIsSavingPurchaseData] = useState(false);
   const [isTogglingTrack, setIsTogglingTrack] = useState(false);
@@ -108,7 +112,7 @@ export function AlbumDetailView({
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.detail || `Erreur ${response.status}`;
-        setStoryError(errorMessage === "AI busy, try again" ? errorMessage : "AI busy, try again");
+        setStoryError(errorMessage);
         console.error("❌ Erreur lors de la génération de notes:", errorMessage);
         return;
       }
@@ -126,7 +130,7 @@ export function AlbumDetailView({
       setStoryError(null);
     } catch (error) {
       console.error("❌ Erreur lors de la génération de notes:", error);
-      setStoryError("AI busy, try again");
+      setStoryError("Erreur de connexion. Réessayez.");
     } finally {
       setIsGeneratingNotes(false);
     }
@@ -398,9 +402,9 @@ export function AlbumDetailView({
       <div className="flex-1 overflow-y-auto scrollbar-hide p-4 pb-20">
         {/* Header */}
         <div className={`mb-4 ${compact ? 'mb-2' : ''} ${showActions && !compact ? 'pr-8' : ''} ${
-          activeTab === "story" ? "md:mb-4" : ""
+          tab === "story" ? "md:mb-4" : ""
         }`}>
-          {activeTab === "story" && (
+          {tab === "story" && (
             <div className="flex items-center gap-3 mb-2 md:hidden transition-opacity duration-300">
               <img 
                 src={localAlbum.display.cover_image || "/placeholder.png"} 
@@ -437,11 +441,11 @@ export function AlbumDetailView({
         <div className={`flex gap-6 ${compact ? 'mb-3' : 'mb-6'} border-b border-white/10`}>
           <button
             onClick={() => {
-              setActiveTab("tracklist");
+              if (activeTabControlled === undefined) setInternalTab("tracklist");
               onTabChange?.("tracklist");
             }}
             className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
-              activeTab === "tracklist"
+              tab === "tracklist"
                 ? "text-white border-b-2 border-white"
                 : "text-zinc-400 hover:text-zinc-300"
             }`}
@@ -450,11 +454,11 @@ export function AlbumDetailView({
           </button>
           <button
             onClick={() => {
-              setActiveTab("sleeve");
+              if (activeTabControlled === undefined) setInternalTab("sleeve");
               onTabChange?.("sleeve");
             }}
             className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
-              activeTab === "sleeve"
+              tab === "sleeve"
                 ? "text-white border-b-2 border-white"
                 : "text-zinc-400 hover:text-zinc-300"
             }`}
@@ -463,11 +467,11 @@ export function AlbumDetailView({
           </button>
           <button
             onClick={() => {
-              setActiveTab("story");
+              if (activeTabControlled === undefined) setInternalTab("story");
               onTabChange?.("story");
             }}
             className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
-              activeTab === "story"
+              tab === "story"
                 ? "text-white border-b-2 border-white"
                 : "text-zinc-400 hover:text-zinc-300"
             }`}
@@ -476,11 +480,11 @@ export function AlbumDetailView({
           </button>
           <button
             onClick={() => {
-              setActiveTab("vibe");
+              if (activeTabControlled === undefined) setInternalTab("vibe");
               onTabChange?.("vibe");
             }}
             className={`${tabSize} pb-2 px-1 font-medium transition-colors ${
-              activeTab === "vibe"
+              tab === "vibe"
                 ? "text-white border-b-2 border-white"
                 : "text-zinc-400 hover:text-zinc-300"
             }`}
@@ -491,7 +495,7 @@ export function AlbumDetailView({
 
         {/* Contenu des onglets */}
         <div>
-          {activeTab === "tracklist" ? (
+          {tab === "tracklist" ? (
             /* Onglet TRACKLIST */
             localAlbum.details.tracklist && localAlbum.details.tracklist.length > 0 ? (
               <ul className={compact ? "space-y-0" : "space-y-1"} role="list">
@@ -544,7 +548,7 @@ export function AlbumDetailView({
                 )}
               </div>
             )
-          ) : activeTab === "sleeve" ? (
+          ) : tab === "sleeve" ? (
             /* Onglet SLEEVE NOTES - Simplifié */
             <div className="transition-opacity duration-300">
               {/* Section Acquisition Log */}
@@ -640,7 +644,7 @@ export function AlbumDetailView({
                 </div>
               </div>
             </div>
-          ) : activeTab === "vibe" ? (
+          ) : tab === "vibe" ? (
             /* Onglet VIBE - Gommettes centrées */
             <div className="flex items-start justify-center py-12">
               <div className="grid grid-cols-3 gap-6 max-w-md">
@@ -702,11 +706,11 @@ export function AlbumDetailView({
             </div>
           ) : (
             /* Onglet STORY - Editorial uniquement */
-            <div className={`${compact ? 'space-y-3' : activeTab === "story" ? 'flex-1 flex flex-col' : 'space-y-6'}`}>
+            <div className={`${compact ? 'space-y-3' : tab === "story" ? 'flex-1 flex flex-col' : 'space-y-6'}`}>
               {/* Section Editorial */}
-              <div className={`${compact ? 'bg-zinc-900/80 border border-zinc-800/50 p-4' : activeTab === "story" ? 'bg-white/5 border border-zinc-800/30 p-6 md:p-10 flex-1 flex flex-col' : 'bg-white/5 border border-zinc-800/30 p-10'} rounded-lg transition-opacity duration-300`}>
+              <div className={`${compact ? 'bg-zinc-900/80 border border-zinc-800/50 p-4' : tab === "story" ? 'bg-white/5 border border-zinc-800/30 p-6 md:p-10 flex-1 flex flex-col' : 'bg-white/5 border border-zinc-800/30 p-10'} rounded-lg transition-opacity duration-300`}>
                 <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? 'mb-3' : 'mb-4'} amp-label ${
-                  activeTab === "story" ? "hidden md:block" : ""
+                  tab === "story" ? "hidden md:block" : ""
                 }`}>
                   Editorial
                 </h4>
@@ -716,7 +720,7 @@ export function AlbumDetailView({
                       className={`${
                         compact 
                           ? 'text-sm leading-relaxed' 
-                          : activeTab === "story" 
+                          : tab === "story" 
                             ? 'text-lg md:text-xl leading-relaxed md:leading-loose px-0 md:px-0' 
                             : 'text-xl leading-loose'
                       } text-zinc-300 text-justify space-y-3 flex-1`}
@@ -786,7 +790,7 @@ export function AlbumDetailView({
                 rel="noopener noreferrer"
                 onClick={() => sounds?.playVinylStart()}
                 className={`bg-[#1DB954] hover:bg-[#1ed760] text-white py-3 px-4 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 ${
-                  activeTab === "story" ? "hidden md:flex" : ""
+                  tab === "story" ? "hidden md:flex" : ""
                 }`}
               >
                 <ExternalLink className="w-4 h-4" />

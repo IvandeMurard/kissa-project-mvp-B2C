@@ -292,6 +292,9 @@ Exemple de ton attendu : 'Dès les premières mesures de Space is Only Noise, on
     except HTTPException as he:
         raise he
     except Exception as e:
+        err = str(e).lower()
+        if "429" in str(e) or ("rate" in err and "limit" in err):
+            raise HTTPException(status_code=503, detail="AI busy, try again")
         print(f"❌ Erreur lors de la génération de notes : {e}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la génération de notes : {str(e)}")
 

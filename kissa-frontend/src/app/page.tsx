@@ -227,6 +227,11 @@ export default function Home() {
     };
   }, [selectedAlbum]);
 
+  // Remettre l'onglet à Tracklist à chaque ouverture d'album (clic grille ou Remote)
+  useEffect(() => {
+    if (selectedAlbum) setModalActiveTab("tracklist");
+  }, [selectedAlbum?.id]);
+
   // --- ÉTATS VUES ET MODE GESTION ---
   const [currentView, setCurrentView] = useState<"SHELF" | "DIG" | "SETUP">("DIG");
   const [isManageMode, setIsManageMode] = useState(false);
@@ -1248,6 +1253,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                 API_URL={API_URL}
                 sounds={sounds}
                 compact={false}
+                activeTab={modalActiveTab}
                 onTabChange={(tab) => setModalActiveTab(tab)}
               />
             </div>
