@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 // Types pour Supabase Realtime
@@ -14,7 +14,7 @@ export const useRemoteControl = (
 ) => {
   
   // Fonction pour EMETTRE (Mobile -> Desktop)
-  const broadcastSelection = async (albumId: string | number) => {
+  const broadcastSelection = useCallback(async (albumId: string | number) => {
     if (!supabase) {
       console.debug('Supabase client not available for broadcasting');
       return;
@@ -65,7 +65,7 @@ export const useRemoteControl = (
         supabase.removeChannel(channel);
       }
     }
-  };
+  }, []);
 
   // Fonction pour RECEVOIR (Desktop)
   useEffect(() => {
@@ -73,6 +73,7 @@ export const useRemoteControl = (
     if (!supabase) return; // Si Supabase n'est pas disponible, on n'écoute pas
 
     const channel = supabase.channel('kissa-room');
+    console.log('📡 Listening on channel kissa-room');
 
     channel
       .on('broadcast', { event: 'select_album' }, (payload: BroadcastPayload) => {

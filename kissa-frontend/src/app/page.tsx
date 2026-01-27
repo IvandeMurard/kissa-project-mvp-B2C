@@ -243,12 +243,19 @@ export default function Home() {
     const album = allAlbums.find(a => a.id === albumId.toString());
     if (album) {
       setSelectedAlbum(album);
-      setSuccessToast("Remote Command Received 📱");
+      setSuccessToast(`Signal reçu : ${album.display.title} 📡`);
     }
   }, [allAlbums]);
 
   // Hook Remote Control
   const { broadcastSelection } = useRemoteControl(handleRemoteOpen);
+
+  // Ouverture d'album : ouvre localement et émet aux autres écrans (Remote Control)
+  const handleAlbumClick = useCallback((album: Album) => {
+    haptic.light();
+    setSelectedAlbum(album);
+    broadcastSelection(album.id);
+  }, [haptic, broadcastSelection]);
 
   // Déclaration de fetchLibrary avec useCallback AVANT le useEffect
   const fetchLibrary = useCallback(async () => {
@@ -955,14 +962,8 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                   <img 
                     src={album.display.cover_image || "/placeholder.png"} 
                     alt={album.display.title}
-                    onClick={(e) => {
-                      haptic.light();
-                      // Sur mobile uniquement : ouvrir la modale
-                      if (window.innerWidth < 768) {
-                        setSelectedAlbum(album);
-                        // Émettre la sélection pour Remote Control
-                        broadcastSelection(album.id);
-                      }
+                    onClick={() => {
+                      if (window.innerWidth < 768) handleAlbumClick(album);
                     }}
                     className={`w-full h-full object-cover transition-transform duration-500 ease-out md:relative md:z-10 md:group-hover:-translate-x-full group-hover:scale-110 md:group-hover:scale-100 cursor-pointer md:cursor-default touch-manipulation ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
                   />
@@ -999,9 +1000,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedAlbum(album);
-                            // Émettre la sélection pour Remote Control
-                            broadcastSelection(album.id);
+                            handleAlbumClick(album);
                           }} 
                           className="text-neutral-700 hover:text-blue-400 transition-colors bg-black/50 p-1 rounded"
                           title="Éditer"
