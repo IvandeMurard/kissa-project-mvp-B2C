@@ -19,6 +19,7 @@ interface Album {
 
 interface AlbumDetailViewProps {
   album: Album;
+  onUpdate?: (album: Album) => void;
   onUpdateAlbum?: (updatedAlbum: Album) => void;
   onDelete?: () => void;
   showActions?: boolean;
@@ -32,6 +33,7 @@ interface AlbumDetailViewProps {
 
 export function AlbumDetailView({
   album: initialAlbum,
+  onUpdate,
   onUpdateAlbum,
   onDelete,
   showActions = true,
@@ -118,9 +120,7 @@ export function AlbumDetailView({
       setLocalAlbum(updated);
       
       // Notifier le parent
-      if (onUpdateAlbum) {
-        onUpdateAlbum(updated);
-      }
+      (onUpdate ?? onUpdateAlbum)?.(updated);
       
       // Réinitialiser l'erreur en cas de succès
       setStoryError(null);
@@ -162,9 +162,7 @@ export function AlbumDetailView({
       };
       setLocalAlbum(updated);
       
-      if (onUpdateAlbum) {
-        onUpdateAlbum(updated);
-      }
+      (onUpdate ?? onUpdateAlbum)?.(updated);
     } catch (error) {
       console.error("❌ Erreur lors de la mise à jour:", error);
     } finally {
@@ -258,9 +256,7 @@ export function AlbumDetailView({
         setLocalAlbum(updated);
         
         // Notifier le parent
-        if (onUpdateAlbum) {
-          onUpdateAlbum(updated);
-        }
+        (onUpdate ?? onUpdateAlbum)?.(updated);
         
         // Afficher un message de succès
         showSuccessToast(`Tracklist mise à jour : ${result.new_tracklist_count} pistes`);
@@ -326,9 +322,7 @@ export function AlbumDetailView({
       };
       setLocalAlbum(updated);
       
-      if (onUpdateAlbum) {
-        onUpdateAlbum(updated);
-      }
+      (onUpdate ?? onUpdateAlbum)?.(updated);
     } catch (error) {
       // Rollback différé ~1 s : la piste reste ambrée puis s'éteint pour signaler que l'action n'a pas été enregistrée
       setTimeout(() => {

@@ -239,11 +239,11 @@ export default function Home() {
   const sounds = useKissaSound();
 
   // Fonction pour gérer la réception des commandes Remote Control
-  const handleRemoteOpen = useCallback((albumId: string | number) => {
-    const album = allAlbums.find(a => a.id === albumId.toString());
-    if (album) {
-      setSelectedAlbum(album);
-      setSuccessToast(`Signal reçu : ${album.display.title} 📡`);
+  const handleRemoteOpen = useCallback((remoteId: string | number) => {
+    const target = allAlbums.find(a => String(a.id) === String(remoteId));
+    if (target) {
+      setSelectedAlbum(target);
+      setSuccessToast(`Remote: ${target.display.title}`);
     }
   }, [allAlbums]);
 
@@ -256,6 +256,12 @@ export default function Home() {
     setSelectedAlbum(album);
     broadcastSelection(album.id);
   }, [haptic, broadcastSelection]);
+
+  // Mise à jour d'un album (gommettes, etc.) : grille et modale restent synchronisées
+  const handleUpdateAlbum = useCallback((updatedAlbum: Album) => {
+    setAllAlbums(prev => prev.map(a => (a.id === updatedAlbum.id ? updatedAlbum : a)));
+    setSelectedAlbum(prev => (prev?.id === updatedAlbum.id ? updatedAlbum : prev));
+  }, []);
 
   // Déclaration de fetchLibrary avec useCallback AVANT le useEffect
   const fetchLibrary = useCallback(async () => {
@@ -1018,9 +1024,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                     )}
                     <AlbumDetailView
                       album={album}
-                      onUpdateAlbum={(updated) => {
-                        setAllAlbums(prev => prev.map(a => a.id === updated.id ? updated : a));
-                      }}
+                      onUpdate={handleUpdateAlbum}
                       onPlay={() => handlePlay(album)}
                       showActions={false}
                       compact={true}
@@ -1237,10 +1241,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
 
               <AlbumDetailView
                 album={selectedAlbum}
-                onUpdateAlbum={(updated) => {
-                  setSelectedAlbum(updated);
-                  setAllAlbums(prev => prev.map(a => a.id === updated.id ? updated : a));
-                }}
+                onUpdate={handleUpdateAlbum}
                 onDelete={handleDeleteFromModal}
                 showActions={true}
                 isManageMode={isManageMode}
