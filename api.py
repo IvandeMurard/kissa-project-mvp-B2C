@@ -25,12 +25,14 @@ from typing import Optional, List, Dict
 import shutil
 import os
 import uuid
-from main import KissaCore
-from supabase import create_client, Client
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Chargement des variables d'environnement
-load_dotenv()
+# Charger .env depuis le répertoire du projet (évite les soucis de CWD au démarrage)
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
+
+from main import KissaCore
+from supabase import create_client, Client
 
 # --- CONFIGURATION SUPABASE ---
 url: str = os.environ.get("SUPABASE_URL")
@@ -89,6 +91,11 @@ class SettingsUpdate(BaseModel):
 @app.get("/")
 def read_root():
     return {"message": "API Kissa connectée à Supabase. Prête ! 🚀"}
+
+@app.get("/health")
+def health():
+    """État des services (ex. openai_configured pour Generate Story)."""
+    return {"openai_configured": kissa.openai_client is not None}
 
 @app.get("/library")
 def get_library():

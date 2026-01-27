@@ -1,18 +1,19 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 // Types pour Supabase Realtime
 type ChannelStatus = 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR';
 type BroadcastPayload = {
-  payload: {
-    id: string | number;
-  };
+  payload?: { id?: string | number };
+  id?: string | number;
 };
 
 export const useRemoteControl = (
   onRemoteSelect?: (albumId: string | number) => void
 ) => {
-  
+  const onRemoteSelectRef = useRef(onRemoteSelect);
+  onRemoteSelectRef.current = onRemoteSelect;
+
   // Fonction pour EMETTRE (Mobile -> Desktop)
   const broadcastSelection = useCallback(async (albumId: string | number) => {
     if (!supabase) {
@@ -65,19 +66,19 @@ export const useRemoteControl = (
     }
   }, []);
 
-  // Fonction pour RECEVOIR (Desktop)
+  // Fonction pour RECEVOIR (Desktop) — ref pour éviter de se réabonner à chaque changement de onRemoteSelect/allAlbums
   useEffect(() => {
-    if (!onRemoteSelect) return; // Si pas de callback, on n'écoute pas (mode émetteur seul)
-    if (!supabase) return; // Si Supabase n'est pas disponible, on n'écoute pas
+    if (!supabase) return;
 
     const channel = supabase.channel('kissa-room');
     console.log('📡 Listening on channel kissa-room');
 
     channel
       .on('broadcast', { event: 'select_album' }, (payload: BroadcastPayload) => {
-        console.log('📡 Signal reçu:', payload);
-        if (payload.payload?.id !== undefined) {
-          onRemoteSelect(payload.payload.id);
+        const id = payload.payload?.id ?? payload.id;
+        if (id !== undefined && id !== null) {
+          console.log('📡 Signal reçu:', id);
+          onRemoteSelectRef.current?.(id);
         }
       })
       .subscribe();
@@ -87,7 +88,7 @@ export const useRemoteControl = (
         supabase.removeChannel(channel);
       }
     };
-  }, [onRemoteSelect]);
+  }, [supabase]);
 
   return { broadcastSelection };
 };
