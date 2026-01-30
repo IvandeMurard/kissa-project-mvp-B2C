@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X, LayoutGrid, Square, Maximize2 } from "lucide-react";
 import { useKissaSound } from "@/hooks/useKissaSound";
 import { useMoodContext } from "@/contexts/MoodContext";
 
@@ -11,8 +11,16 @@ interface FilterBarProps {
   onGenreChange: (genre: string | null) => void;
   selectedMoods: string[];
   onMoodChange: (moods: string[]) => void;
+  gridColumns: number;
+  onGridColumnsChange: (cols: number) => void;
   sounds?: ReturnType<typeof useKissaSound>;
 }
+
+const DENSITY_PRESETS = [
+  { cols: 12, icon: LayoutGrid, label: "Petit (12 colonnes)", ariaLabel: "Densité : 12 colonnes" },
+  { cols: 6, icon: Square, label: "Moyen (6 colonnes)", ariaLabel: "Densité : 6 colonnes" },
+  { cols: 3, icon: Maximize2, label: "Grand (3 colonnes)", ariaLabel: "Densité : 3 colonnes" },
+] as const;
 
 export function FilterBar({
   availableGenres,
@@ -20,6 +28,8 @@ export function FilterBar({
   onGenreChange,
   selectedMoods,
   onMoodChange,
+  gridColumns,
+  onGridColumnsChange,
   sounds,
 }: FilterBarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -100,6 +110,29 @@ export function FilterBar({
             </button>
           );
         })}
+
+        {/* Densité grille (mobile) */}
+        <div className="flex items-center gap-1 shrink-0">
+          {DENSITY_PRESETS.map(({ cols, icon: Icon, ariaLabel }) => (
+            <button
+              key={cols}
+              type="button"
+              onClick={() => {
+                sounds?.playSwitch();
+                onGridColumnsChange(cols);
+              }}
+              aria-label={ariaLabel}
+              title={`${cols} colonnes`}
+              className={`p-1.5 rounded-sm transition-all duration-200 ${
+                gridColumns === cols
+                  ? "amp-button-active text-white"
+                  : "text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200"
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+            </button>
+          ))}
+        </div>
 
         {/* Bouton Toggle */}
         <button
@@ -313,6 +346,31 @@ export function FilterBar({
             );
           })}
         </div>
+
+        {/* Séparateur + Densité grille (desktop) */}
+        <div className="w-px h-6 bg-white/10 mx-2 shrink-0" />
+        <div className="flex items-center gap-1 shrink-0" role="group" aria-label="Densité de grille">
+          {DENSITY_PRESETS.map(({ cols, icon: Icon, label, ariaLabel }) => (
+            <button
+              key={cols}
+              type="button"
+              onClick={() => {
+                sounds?.playSwitch();
+                onGridColumnsChange(cols);
+              }}
+              aria-label={ariaLabel}
+              title={label}
+              className={`p-1.5 rounded-sm transition-all duration-200 ${
+                gridColumns === cols
+                  ? "amp-button-active text-white"
+                  : "text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200"
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+            </button>
+          ))}
+        </div>
+
         {/* Tooltip avec position fixed pour desktop */}
         {hoveredMood && tooltipPosition && (
           <div
