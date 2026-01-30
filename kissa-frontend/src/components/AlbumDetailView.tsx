@@ -251,6 +251,7 @@ export function AlbumDetailView({
         mood_colors: previousColors,
       };
       setLocalAlbum(rollbackUpdated);
+      (onUpdate ?? onUpdateAlbum)?.(rollbackUpdated);
       showErrorToast("Erreur lors de la mise à jour. Veuillez réessayer.");
       console.error("❌ Erreur lors de la mise à jour des mood colors:", error);
     } finally {
