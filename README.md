@@ -66,7 +66,7 @@ The app relies on a decoupled architecture (Vercel Frontend / Render Backend) wi
 * [x] **Forensic Scanning** (Handle 45s & OSTs)
 * [x] **Selector Mode** (Moods & Focus Tracks)
 * [x] **Remote Control** (Device Sync)
-* [ ] **Discogs Bridge**: One-click import of your existing Discogs collection.
+* [x] **Discogs Bridge**: One-click import of your existing Discogs collection.
 * [ ] **Barcode Scanner**: Hybrid mode for modern releases.
 
 ---
