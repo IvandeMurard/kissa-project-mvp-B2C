@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 
-import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock, Sparkles, MapPin } from "lucide-react";
+import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock, Sparkles, MapPin, CheckSquare, Edit3, CheckCircle } from "lucide-react";
 
 import { supabase } from "@/lib/supabaseClient";
 
@@ -37,6 +37,10 @@ interface Album {
 
   mood_colors?: string[] | null;
 
+  dominant_color?: string | null;
+
+  dominant_hue?: number | null;
+
 }
 
 
@@ -57,6 +61,27 @@ interface SearchCandidate {
 
 }
 
+/** Convert hex color to HSL hue (0-360). Returns null if invalid. */
+function hexToHue(hex: string): number | null {
+  const m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (!m) return null;
+  const r = parseInt(m[1], 16) / 255;
+  const g = parseInt(m[2], 16) / 255;
+  const b = parseInt(m[3], 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  if (max !== min) {
+    const d = max - min;
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return Math.round(h * 360);
+}
+
 function formatAlbumRow(item: any): Album {
   return {
     id: item.id,
@@ -72,6 +97,8 @@ function formatAlbumRow(item: any): Album {
     storage_location: item.storage_location ?? null,
     focus_track_indices: item.focus_track_indices || [],
     mood_colors: item.mood_colors || [],
+    dominant_color: item.dominant_color ?? null,
+    dominant_hue: item.dominant_hue ?? null,
   };
 }
 
@@ -217,7 +244,7 @@ export default function Home() {
   // États UI Globaux
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortOption, setSortOption] = useState<"recent" | "artist" | "year" | "location">("recent");
+  const [sortOption, setSortOption] = useState<"recent" | "artist" | "year" | "location" | "color">("recent");
 
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
@@ -251,10 +278,26 @@ export default function Home() {
     if (selectedAlbum) setModalActiveTab("tracklist");
   }, [selectedAlbum?.id]);
 
+  // Fermer le menu admin au clic extérieur
+  useEffect(() => {
+    const onMouseDown = (e: MouseEvent) => {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(e.target as Node)) {
+        setIsAdminMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, []);
+
   // --- ÉTATS VUES ET MODE GESTION ---
   const [currentView, setCurrentView] = useState<"SHELF" | "DIG" | "SETUP">("DIG");
   const [isManageMode, setIsManageMode] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [gridColumns, setGridColumns] = useState(6);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedAlbumIds, setSelectedAlbumIds] = useState<Set<string>>(new Set());
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
+  const adminMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Haptic feedback hook
   const haptic = useHaptic();
@@ -284,12 +327,21 @@ export default function Home() {
   // Hook Remote Control
   const { broadcastSelection, broadcastAlbumUpdate } = useRemoteControl(handleRemoteOpen, handleAlbumUpdated);
 
-  // Ouverture d'album : ouvre localement et émet aux autres écrans (Remote Control)
+  // Ouverture d'album : en mode sélection = toggle sélection ; sinon ouvre modale + broadcast
   const handleAlbumClick = useCallback((album: Album) => {
     haptic.light();
+    if (isSelectionMode) {
+      setSelectedAlbumIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(album.id)) next.delete(album.id);
+        else next.add(album.id);
+        return next;
+      });
+      return;
+    }
     setSelectedAlbum(album);
     broadcastSelection(album.id);
-  }, [haptic, broadcastSelection]);
+  }, [haptic, broadcastSelection, isSelectionMode]);
 
   // Mise à jour d'un album (gommettes, etc.) : grille et modale restent synchronisées ; broadcast pour l’écran Remote
   const handleUpdateAlbum = useCallback((updatedAlbum: Album) => {
@@ -433,7 +485,30 @@ export default function Home() {
 
   };
 
-
+  const handleBatchDelete = async () => {
+    if (selectedAlbumIds.size === 0) return;
+    if (!window.confirm(`Supprimer ${selectedAlbumIds.size} album(s) ?`)) return;
+    if (!supabase) return;
+    haptic.heavy();
+    const ids = Array.from(selectedAlbumIds);
+    const { error } = await supabase.from("albums").delete().in("id", ids);
+    if (error) {
+      console.error("❌ Batch delete error:", error);
+      setSuccessToast(null);
+      alert(`Erreur : ${error.message}`);
+      return;
+    }
+    setAllAlbums((prev) => prev.filter((a) => !selectedAlbumIds.has(a.id)));
+    if (currentTrack && selectedAlbumIds.has(currentTrack.id)) {
+      setCurrentTrack(null);
+      setIsPlaying(false);
+    }
+    if (selectedAlbum && selectedAlbumIds.has(selectedAlbum.id)) setSelectedAlbum(null);
+    setSelectedAlbumIds(new Set());
+    setIsSelectionMode(false);
+    setIsAdminMenuOpen(false);
+    setSuccessToast(`${ids.length} album(s) supprimé(s)`);
+  };
 
   const handleDeleteFromModal = async () => {
 
@@ -747,6 +822,14 @@ export default function Home() {
           if (!sb) return -1;
           return sa.localeCompare(sb);
         }
+        case "color": {
+          const hueA = a.dominant_hue ?? (a.dominant_color ? hexToHue(a.dominant_color) : null);
+          const hueB = b.dominant_hue ?? (b.dominant_color ? hexToHue(b.dominant_color) : null);
+          if (hueA == null && hueB == null) return 0;
+          if (hueA == null) return 1;
+          if (hueB == null) return -1;
+          return hueA - hueB;
+        }
         case "recent":
         default:
           return 0;
@@ -829,18 +912,62 @@ export default function Home() {
         <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-md border-b border-white/5 px-6 py-4 flex flex-col md:flex-row justify-between gap-4">
           <div className="flex items-center gap-6">
             <h1 className="lightbox-sign inline-block rounded-xl px-4 py-2 text-sm">喫茶 Kissa</h1>
-            {/* Toggle Mode Gestion */}
-            <button
-              onClick={() => {
-                setIsManageMode(!isManageMode);
-                haptic.light();
-                sounds.playSwitch();
-              }}
-              className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all touch-manipulation"
-              title={isManageMode ? "Verrouiller" : "Déverrouiller"}
-            >
-              {isManageMode ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-            </button>
+            {/* Menu Admin (cadenas) */}
+            <div ref={adminMenuRef} className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsAdminMenuOpen((o) => !o);
+                  haptic.light();
+                  sounds.playSwitch();
+                }}
+                className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all touch-manipulation"
+                title={isManageMode ? "Verrouiller" : "Déverrouiller"}
+              >
+                {isManageMode ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+              </button>
+              {isAdminMenuOpen && (
+                <div className="absolute left-0 top-full mt-1 z-50 min-w-[160px] bg-zinc-900 border border-white/10 rounded-lg shadow-xl py-1 animate-in fade-in duration-150">
+                  <button
+                    onClick={() => {
+                      setIsSelectionMode((prev) => !prev);
+                      if (isSelectionMode) setSelectedAlbumIds(new Set());
+                      setIsAdminMenuOpen(false);
+                      haptic.light();
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-white/10 ${isSelectionMode ? "bg-blue-500/20 text-blue-300" : "text-neutral-200"}`}
+                    title="Sélection"
+                  >
+                    <CheckSquare className="w-4 h-4 shrink-0" />
+                    Sélection
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setIsAdminMenuOpen(false);
+                      await handleBatchDelete();
+                    }}
+                    disabled={selectedAlbumIds.size === 0}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-neutral-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Supprimer les albums sélectionnés"
+                  >
+                    <Trash2 className="w-4 h-4 shrink-0" />
+                    Supprimer
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsManageMode((prev) => !prev);
+                      setIsAdminMenuOpen(false);
+                      haptic.light();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-neutral-200 hover:bg-white/10 transition-colors"
+                    title="Éditer"
+                  >
+                    <Edit3 className="w-4 h-4 shrink-0" />
+                    Éditer
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -875,6 +1002,8 @@ export default function Home() {
             onMoodChange={(moods) => {
               setSelectedMoods(moods);
             }}
+            gridColumns={gridColumns}
+            onGridColumnsChange={setGridColumns}
             sounds={sounds}
           />
 
@@ -886,20 +1015,25 @@ export default function Home() {
                 <label className="amp-label text-neutral-500">SORT:</label>
                 <select
                   value={sortOption}
-                  onChange={(e) => setSortOption(e.target.value as "recent" | "artist" | "year" | "location")}
+                  onChange={(e) => setSortOption(e.target.value as "recent" | "artist" | "year" | "location" | "color")}
                   className="bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20 transition-all cursor-pointer"
                 >
                   <option value="recent">Ajouté récemment</option>
                   <option value="artist">Artiste (A-Z)</option>
                   <option value="year">Année</option>
                   <option value="location">Rangement (A-Z)</option>
+                  <option value="color">Couleur (Rainbow)</option>
                 </select>
               </div>
             </div>
           </div>
 
           {/* GRILLE D'ALBUMS */}
-          <div className="px-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-4 transition-all duration-300">
+          <div
+            className={`px-6 grid mt-4 transition-all duration-300 ${
+              gridColumns === 12 ? "grid-cols-12 gap-2" : gridColumns === 6 ? "grid-cols-6 gap-6" : "grid-cols-3 gap-6"
+            }`}
+          >
             {isLoadingLibrary ? (
               // Skeletons pendant le chargement
               Array.from({ length: 6 }).map((_, i) => (
@@ -971,15 +1105,32 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
               </div>
             ) : (
               filteredAlbums.map((album) => (
-                <div key={album.id} className="group relative aspect-square bg-[#111] overflow-hidden cursor-default border border-white/5 animate-in fade-in duration-300">
+                <div
+                  key={album.id}
+                  onClick={isSelectionMode ? (e) => { e.stopPropagation(); handleAlbumClick(album); } : undefined}
+                  className={`group relative aspect-square bg-[#111] overflow-hidden border animate-in fade-in duration-300 transition-all ${
+                    isSelectionMode ? "cursor-pointer" : "cursor-default"
+                  } ${
+                    selectedAlbumIds.has(album.id) ? "border-2 border-blue-500 ring-2 ring-blue-500/30" : "border border-white/5"
+                  } ${
+                    isSelectionMode && !selectedAlbumIds.has(album.id) ? "opacity-70" : ""
+                  }`}
+                >
                   <img 
                     src={album.display.cover_image || "/placeholder.png"} 
                     alt={album.display.title}
                     onClick={() => {
-                      if (window.innerWidth < 768) handleAlbumClick(album);
+                      if (!isSelectionMode && window.innerWidth < 768) handleAlbumClick(album);
                     }}
-                    className={`w-full h-full object-cover transition-transform duration-500 ease-out md:relative md:z-10 md:group-hover:-translate-x-full group-hover:scale-110 md:group-hover:scale-100 cursor-pointer md:cursor-default touch-manipulation ${currentTrack?.id === album.id ? 'opacity-50 grayscale' : ''}`}
+                    className={`w-full h-full object-cover transition-transform duration-500 ease-out md:relative md:z-10 md:group-hover:-translate-x-full group-hover:scale-110 md:group-hover:scale-100 touch-manipulation ${
+                      isSelectionMode ? "scale-95 cursor-pointer" : "cursor-pointer md:cursor-default"
+                    } ${currentTrack?.id === album.id ? "opacity-50 grayscale" : ""}`}
                   />
+                  {isSelectionMode && selectedAlbumIds.has(album.id) && (
+                    <div className="absolute top-2 right-2 z-30 pointer-events-none">
+                      <CheckCircle className="w-8 h-8 text-blue-500 drop-shadow-md" />
+                    </div>
+                  )}
                   {/* Mood Colors Gommettes */}
                   {album.mood_colors && album.mood_colors.length > 0 && (
                     <div className="absolute top-2 right-2 z-20 flex gap-1 flex-wrap max-w-[60%]">
@@ -1006,38 +1157,40 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                     </span>
                   )}
 
-                  <div className="absolute inset-0 bg-black/90 backdrop-blur-sm translate-y-full group-hover:translate-y-0 md:translate-y-0 md:z-0 transition-opacity duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] md:opacity-0 md:group-hover:opacity-100 overflow-hidden">
-                    {/* Boutons d'action - affichés uniquement si isManageMode est true */}
-                    {isManageMode && (
-                      <div className="absolute top-3 right-3 z-10 flex gap-2">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAlbumClick(album);
-                          }} 
-                          className="text-neutral-700 hover:text-blue-400 transition-colors bg-black/50 p-1 rounded"
-                          title="Éditer"
-                        >
-                          <Edit className="w-3 h-3" />
-                        </button>
-                        <button 
-                          onClick={(e) => handleDelete(album.id, e)} 
-                          className="text-neutral-700 hover:text-red-500 transition-colors bg-black/50 p-1 rounded touch-manipulation" 
-                          title="DISCARD"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    )}
-                    <AlbumDetailView
-                      album={album}
-                      onUpdate={handleUpdateAlbum}
-                      onPlay={() => handlePlay(album)}
-                      showActions={false}
-                      compact={true}
-                      API_URL={API_URL}
-                    />
-                  </div>
+                  {gridColumns !== 12 && (
+                    <div className="absolute inset-0 bg-black/90 backdrop-blur-sm translate-y-full group-hover:translate-y-0 md:translate-y-0 md:z-0 transition-opacity duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] md:opacity-0 md:group-hover:opacity-100 overflow-hidden">
+                      {/* Boutons d'action - affichés uniquement si isManageMode est true */}
+                      {isManageMode && (
+                        <div className="absolute top-3 right-3 z-10 flex gap-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAlbumClick(album);
+                            }} 
+                            className="text-neutral-700 hover:text-blue-400 transition-colors bg-black/50 p-1 rounded"
+                            title="Éditer"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </button>
+                          <button 
+                            onClick={(e) => handleDelete(album.id, e)} 
+                            className="text-neutral-700 hover:text-red-500 transition-colors bg-black/50 p-1 rounded touch-manipulation" 
+                            title="DISCARD"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                      <AlbumDetailView
+                        album={album}
+                        onUpdate={handleUpdateAlbum}
+                        onPlay={() => handlePlay(album)}
+                        showActions={false}
+                        compact={true}
+                        API_URL={API_URL}
+                      />
+                    </div>
+                  )}
 
                   {currentTrack?.id === album.id && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
