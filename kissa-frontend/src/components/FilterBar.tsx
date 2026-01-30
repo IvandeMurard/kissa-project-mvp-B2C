@@ -5,22 +5,24 @@ import { SlidersHorizontal, X, LayoutGrid, Square, Maximize2 } from "lucide-reac
 import { useKissaSound } from "@/hooks/useKissaSound";
 import { useMoodContext } from "@/contexts/MoodContext";
 
+export type GridDensity = "large" | "medium" | "small";
+
 interface FilterBarProps {
   availableGenres: string[];
   selectedGenre: string | null;
   onGenreChange: (genre: string | null) => void;
   selectedMoods: string[];
   onMoodChange: (moods: string[]) => void;
-  gridColumns: number;
-  onGridColumnsChange: (cols: number) => void;
+  gridDensity: GridDensity;
+  onGridDensityChange: (density: GridDensity) => void;
   sounds?: ReturnType<typeof useKissaSound>;
 }
 
-const DENSITY_PRESETS = [
-  { cols: 12, icon: LayoutGrid, label: "Petit (12 colonnes)", ariaLabel: "Densité : 12 colonnes" },
-  { cols: 6, icon: Square, label: "Moyen (6 colonnes)", ariaLabel: "Densité : 6 colonnes" },
-  { cols: 3, icon: Maximize2, label: "Grand (3 colonnes)", ariaLabel: "Densité : 3 colonnes" },
-] as const;
+const DENSITY_PRESETS: { density: GridDensity; icon: typeof LayoutGrid; label: string; ariaLabel: string }[] = [
+  { density: "large", icon: Maximize2, label: "Grand", ariaLabel: "Densité : Grand (2/4 colonnes)" },
+  { density: "medium", icon: Square, label: "Moyen", ariaLabel: "Densité : Moyen (3/6 colonnes)" },
+  { density: "small", icon: LayoutGrid, label: "Petit", ariaLabel: "Densité : Petit (4/8 colonnes)" },
+];
 
 export function FilterBar({
   availableGenres,
@@ -28,8 +30,8 @@ export function FilterBar({
   onGenreChange,
   selectedMoods,
   onMoodChange,
-  gridColumns,
-  onGridColumnsChange,
+  gridDensity,
+  onGridDensityChange,
   sounds,
 }: FilterBarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -57,7 +59,7 @@ export function FilterBar({
   return (
     <>
       {/* Mobile: Ligne Résumé (Fermé) */}
-      <div className="md:hidden px-6 py-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+      <div className="md:hidden max-w-full px-6 py-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
         {/* Bouton ALL */}
         <button
           onClick={() => {
@@ -113,18 +115,18 @@ export function FilterBar({
 
         {/* Densité grille (mobile) */}
         <div className="flex items-center gap-1 shrink-0">
-          {DENSITY_PRESETS.map(({ cols, icon: Icon, ariaLabel }) => (
+          {DENSITY_PRESETS.map(({ density, icon: Icon, ariaLabel }) => (
             <button
-              key={cols}
+              key={density}
               type="button"
               onClick={() => {
                 sounds?.playSwitch();
-                onGridColumnsChange(cols);
+                onGridDensityChange(density);
               }}
               aria-label={ariaLabel}
-              title={`${cols} colonnes`}
+              title={density}
               className={`p-1.5 rounded-sm transition-all duration-200 ${
-                gridColumns === cols
+                gridDensity === density
                   ? "amp-button-active text-white"
                   : "text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200"
               }`}
@@ -267,7 +269,7 @@ export function FilterBar({
       )}
 
       {/* Desktop: Comportement actuel */}
-      <div className="hidden md:flex px-6 py-4 gap-2 items-center overflow-x-auto scrollbar-hide">
+      <div className="hidden md:flex max-w-full px-6 py-4 gap-2 items-center overflow-x-auto scrollbar-hide">
         {/* Section Genres */}
         {availableGenres.length > 0 && (
           <>
@@ -350,18 +352,18 @@ export function FilterBar({
         {/* Séparateur + Densité grille (desktop) */}
         <div className="w-px h-6 bg-white/10 mx-2 shrink-0" />
         <div className="flex items-center gap-1 shrink-0" role="group" aria-label="Densité de grille">
-          {DENSITY_PRESETS.map(({ cols, icon: Icon, label, ariaLabel }) => (
+          {DENSITY_PRESETS.map(({ density, icon: Icon, label, ariaLabel }) => (
             <button
-              key={cols}
+              key={density}
               type="button"
               onClick={() => {
                 sounds?.playSwitch();
-                onGridColumnsChange(cols);
+                onGridDensityChange(density);
               }}
               aria-label={ariaLabel}
               title={label}
               className={`p-1.5 rounded-sm transition-all duration-200 ${
-                gridColumns === cols
+                gridDensity === density
                   ? "amp-button-active text-white"
                   : "text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200"
               }`}

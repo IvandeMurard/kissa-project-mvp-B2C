@@ -296,7 +296,7 @@ export default function Home() {
   const [currentView, setCurrentView] = useState<"SHELF" | "DIG" | "SETUP">("DIG");
   const [isManageMode, setIsManageMode] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [gridColumns, setGridColumns] = useState(6);
+  const [gridDensity, setGridDensity] = useState<"large" | "medium" | "small">("large");
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedAlbumIds, setSelectedAlbumIds] = useState<Set<string>>(new Set());
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
@@ -401,7 +401,7 @@ export default function Home() {
       setAllAlbums(formattedLibrary);
       console.log("✅ allAlbums mis à jour avec", formattedLibrary.length, "album(s)");
 
-      const allGenres = formattedLibrary.flatMap(a => a.details.genre || []);
+      const allGenres = formattedLibrary.flatMap(a => (a.details.genre || []).map(g => (g && typeof g === "string" ? g.trim() : "")).filter(Boolean));
 
       setAvailableGenres(Array.from(new Set(allGenres)).sort());
       console.log("✅ Genres mis à jour:", Array.from(new Set(allGenres)).sort());
@@ -908,7 +908,7 @@ export default function Home() {
 
   return (
 
-    <main className="min-h-screen bg-[#080808] text-neutral-200 font-sans pb-24">
+    <main className="min-h-screen bg-[#080808] text-neutral-200 font-sans pb-24 overflow-x-hidden">
 
       {/* HEADER - Affiché uniquement pour SHELF */}
       {currentView === "SHELF" && (
@@ -1011,8 +1011,8 @@ export default function Home() {
             onMoodChange={(moods) => {
               setSelectedMoods(moods);
             }}
-            gridColumns={gridColumns}
-            onGridColumnsChange={setGridColumns}
+            gridDensity={gridDensity}
+            onGridDensityChange={setGridDensity}
             sounds={sounds}
           />
 
@@ -1039,8 +1039,10 @@ export default function Home() {
 
           {/* GRILLE D'ALBUMS */}
           <div
-            className={`px-6 grid mt-4 transition-all duration-300 ${
-              gridColumns === 12 ? "grid-cols-12 gap-2" : gridColumns === 6 ? "grid-cols-6 gap-6" : "grid-cols-3 gap-6"
+            className={`px-6 grid mt-4 transition-all duration-300 max-w-full ${
+              gridDensity === "large" ? "grid-cols-2 md:grid-cols-4 gap-4 md:gap-6" :
+              gridDensity === "medium" ? "grid-cols-3 md:grid-cols-6 gap-3 md:gap-6" :
+              "grid-cols-4 md:grid-cols-8 gap-2 md:gap-4"
             }`}
           >
             {isLoadingLibrary ? (
@@ -1127,10 +1129,10 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                     src={album.display.cover_image || "/placeholder.png"} 
                     alt={album.display.title}
                     onClick={() => {
-                      if (!isSelectionMode && window.innerWidth < 768) handleAlbumClick(album);
+                      if (!isSelectionMode) handleAlbumClick(album);
                     }}
                     className={`w-full h-full object-cover transition-all duration-300 ease-out touch-manipulation ${
-                      gridColumns !== 12 ? "md:relative md:z-10 shadow-md md:group-hover:-translate-y-4 md:group-hover:scale-105 md:group-hover:shadow-2xl" : ""
+                      gridDensity !== "small" ? "md:relative md:z-10 shadow-md md:group-hover:-translate-y-4 md:group-hover:scale-105 md:group-hover:shadow-2xl" : ""
                     } ${
                       isSelectionMode && !selectedAlbumIds.has(album.id) ? "scale-90 opacity-60 grayscale" : ""
                     } ${
@@ -1163,7 +1165,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                     </span>
                   )}
 
-                  {gridColumns !== 12 && (
+                  {gridDensity !== "small" && (
                     <div className="absolute inset-0 bg-black/90 backdrop-blur-sm translate-y-full group-hover:translate-y-0 md:translate-y-0 md:z-0 transition-opacity duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] md:opacity-0 md:group-hover:opacity-100 overflow-hidden">
                       {/* Boutons d'action - affichés uniquement si isManageMode est true */}
                       {isManageMode && (
