@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import Link from "next/link";
 
 import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock, Sparkles, MapPin } from "lucide-react";
 
@@ -54,6 +55,24 @@ interface SearchCandidate {
 
   thumb: string;
 
+}
+
+function formatAlbumRow(item: any): Album {
+  return {
+    id: item.id,
+    display: { artist: item.artist, title: item.title, cover_image: item.cover_image },
+    links: {
+      spotify_url: item.spotify_url,
+      discogs_url: item.discogs_url,
+      spotify_id: item.spotify_url ? item.spotify_url.split('/album/')[1]?.split('?')[0] : undefined,
+    },
+    details: { year: item.year, label: item.label, genre: item.genre || [], tracklist: item.tracklist || [] },
+    purchase_data: item.purchase_data || null,
+    editorial_notes: item.editorial_notes || null,
+    storage_location: item.storage_location ?? null,
+    focus_track_indices: item.focus_track_indices || [],
+    mood_colors: item.mood_colors || [],
+  };
 }
 
 // Composant pour la section Mood Configuration dans SETUP
@@ -252,8 +271,18 @@ export default function Home() {
     }
   }, [allAlbums]);
 
+  // Réception d’un broadcast "album_updated" : refetch l’album depuis Supabase et met à jour le state (écran)
+  const handleAlbumUpdated = useCallback(async (id: string) => {
+    if (!supabase) return;
+    const { data, error } = await supabase.from("albums").select("*").eq("id", id).single();
+    if (error || !data) return;
+    const album = formatAlbumRow(data);
+    setAllAlbums((prev) => prev.map((a) => (a.id === album.id ? album : a)));
+    setSelectedAlbum((prev) => (prev?.id === album.id ? album : prev));
+  }, [supabase]);
+
   // Hook Remote Control
-  const { broadcastSelection } = useRemoteControl(handleRemoteOpen);
+  const { broadcastSelection, broadcastAlbumUpdate } = useRemoteControl(handleRemoteOpen, handleAlbumUpdated);
 
   // Ouverture d'album : ouvre localement et émet aux autres écrans (Remote Control)
   const handleAlbumClick = useCallback((album: Album) => {
@@ -262,11 +291,12 @@ export default function Home() {
     broadcastSelection(album.id);
   }, [haptic, broadcastSelection]);
 
-  // Mise à jour d'un album (gommettes, etc.) : grille et modale restent synchronisées
+  // Mise à jour d'un album (gommettes, etc.) : grille et modale restent synchronisées ; broadcast pour l’écran Remote
   const handleUpdateAlbum = useCallback((updatedAlbum: Album) => {
     setAllAlbums(prev => prev.map(a => (a.id === updatedAlbum.id ? updatedAlbum : a)));
     setSelectedAlbum(prev => (prev?.id === updatedAlbum.id ? updatedAlbum : prev));
-  }, []);
+    broadcastAlbumUpdate(updatedAlbum.id);
+  }, [broadcastAlbumUpdate]);
 
   // Déclaration de fetchLibrary avec useCallback AVANT le useEffect
   const fetchLibrary = useCallback(async () => {
@@ -308,35 +338,7 @@ export default function Home() {
         return;
       }
 
-      const formattedLibrary: Album[] = (data || []).map((item: any) => ({
-
-        id: item.id,
-
-        display: { artist: item.artist, title: item.title, cover_image: item.cover_image },
-
-        links: { 
-
-          spotify_url: item.spotify_url, 
-
-          discogs_url: item.discogs_url,
-
-          spotify_id: item.spotify_url ? item.spotify_url.split('/album/')[1]?.split('?')[0] : null
-
-        },
-
-        details: { year: item.year, label: item.label, genre: item.genre || [], tracklist: item.tracklist || [] },
-
-        purchase_data: item.purchase_data || null,
-
-        editorial_notes: item.editorial_notes || null,
-
-        storage_location: item.storage_location ?? null,
-
-        focus_track_indices: item.focus_track_indices || [],
-
-        mood_colors: item.mood_colors || [],
-
-      }));
+      const formattedLibrary: Album[] = (data || []).map((item: any) => formatAlbumRow(item));
 
       console.log(`✅ ${formattedLibrary.length} album(s) chargé(s) et formatés`);
       console.log("📋 Détails des albums:", formattedLibrary.map(a => `${a.display.artist} - ${a.display.title}`));
@@ -1404,6 +1406,21 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
 
             {/* Section Mood Configuration */}
             <MoodConfigurationSection />
+
+            {/* Section Import External Data */}
+            <div className="bg-[#111] border border-white/10 rounded-lg p-6">
+              <h3 className="amp-label text-white mb-4">IMPORT EXTERNAL DATA</h3>
+              <p className="text-neutral-400 text-sm mb-4">
+                Import your Discogs collection into Kissa.
+              </p>
+              <Link
+                href="/setup"
+                className="inline-flex items-center gap-2 bg-white text-black px-4 py-2 rounded text-sm font-bold uppercase hover:bg-neutral-200"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Import your Discogs collection
+              </Link>
+            </div>
           </div>
         </div>
       )}

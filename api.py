@@ -25,6 +25,7 @@ from typing import Optional, List, Dict
 import shutil
 import os
 import uuid
+import requests
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -87,6 +88,30 @@ class GenerateNotesResponse(BaseModel):
 class SettingsUpdate(BaseModel):
     """Modèle pour mettre à jour les settings (configuration des Moods)"""
     mood_config: Optional[Dict[str, str]] = None
+
+
+# --- Discogs Bridge ---
+class DiscogsCollectionItem(BaseModel):
+    """Un album simplifié renvoyé par GET /discogs/collection/{username}"""
+    discogs_id: int
+    artist: str
+    title: str
+    year: Optional[str] = None
+    thumb: Optional[str] = None
+    resource_url: Optional[str] = None
+
+
+class DiscogsImportBatchRequest(BaseModel):
+    """Body de POST /discogs/import-batch : liste d'albums au format simplifié"""
+    albums: List[DiscogsCollectionItem]
+
+
+class DiscogsImportBatchResponse(BaseModel):
+    """Résumé de l'import par lots"""
+    processed: int
+    success: int
+    failed: int
+
 
 @app.get("/")
 def read_root():
@@ -213,6 +238,183 @@ async def add_vinyl_by_id(request: AddByIdRequest):
     except Exception as e:
         # Crashs imprévus : deviennent 500
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Discogs Bridge : récupération collection ---
+DISCOGS_COLLECTION_MAX_ITEMS = 500
+DISCOGS_PER_PAGE = 100
+DISCOGS_USER_AGENT = "KissaApp/1.0 +https://github.com/kissa"
+
+
+@app.get("/discogs/collection/{username}", response_model=List[DiscogsCollectionItem])
+def get_discogs_collection(username: str):
+    """
+    Récupère la collection Discogs d'un utilisateur (folder 0) et la renvoie
+    en liste simplifiée. Pagination gérée en interne, plafonnée à 500 items (v1).
+    """
+    token = os.environ.get("DISCOGS_TOKEN")
+    if not token:
+        raise HTTPException(
+            status_code=503,
+            detail="DISCOGS_TOKEN manquant. Configurez-le dans .env pour accéder à la collection.",
+        )
+    headers = {
+        "User-Agent": DISCOGS_USER_AGENT,
+        "Authorization": f"Discogs token={token}",
+    }
+    all_items: List[DiscogsCollectionItem] = []
+    page = 1
+
+    while len(all_items) < DISCOGS_COLLECTION_MAX_ITEMS:
+        url = (
+            f"https://api.discogs.com/users/{username}/collection/folders/0/releases"
+            f"?page={page}&per_page={DISCOGS_PER_PAGE}"
+        )
+        try:
+            resp = requests.get(url, headers=headers, timeout=30)
+        except requests.RequestException as e:
+            print(f"Discogs request error: {e}")
+            raise HTTPException(status_code=502, detail="Discogs API indisponible.")
+
+        if resp.status_code == 401:
+            raise HTTPException(
+                status_code=401,
+                detail="Token Discogs invalide ou expiré.",
+            )
+        if resp.status_code == 403:
+            raise HTTPException(
+                status_code=403,
+                detail="Accès refusé à la collection Discogs.",
+            )
+        if resp.status_code == 404:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Utilisateur Discogs '{username}' introuvable ou collection vide.",
+            )
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Discogs API a renvoyé {resp.status_code}.",
+            )
+
+        data = resp.json()
+        releases = data.get("releases") or []
+        pagination = data.get("pagination") or {}
+
+        for item in releases:
+            if len(all_items) >= DISCOGS_COLLECTION_MAX_ITEMS:
+                break
+            info = item.get("basic_information") or item
+            # Release ID: prefer basic_information.id (release), fallback to item.id
+            release_id = info.get("id") or item.get("id")
+            if release_id is None:
+                continue
+            artists = info.get("artists") or []
+            artist = "Unknown"
+            if artists:
+                names = [a.get("name") for a in artists if a.get("name")]
+                artist = ", ".join(names) if names else "Unknown"
+            title = (info.get("title") or "").strip() or "Unknown"
+            year_val = info.get("year")
+            year = str(year_val) if year_val is not None else None
+            thumb = info.get("thumb")
+            resource_url = info.get("resource_url")
+            all_items.append(
+                DiscogsCollectionItem(
+                    discogs_id=int(release_id),
+                    artist=artist,
+                    title=title,
+                    year=year,
+                    thumb=thumb,
+                    resource_url=resource_url,
+                )
+            )
+
+        pages = pagination.get("pages", 1)
+        if page >= pages or not releases:
+            break
+        page += 1
+
+    return all_items
+
+
+@app.post("/discogs/import-batch", response_model=DiscogsImportBatchResponse)
+async def discogs_import_batch(request: DiscogsImportBatchRequest):
+    """
+    Importe par lots des albums au format simplifié (ex. issus de GET /discogs/collection/{username}).
+    Pour chaque album : dédoublonnage (discogs_id ou artist+title), recherche Spotify, insertion Supabase.
+    Si Spotify ne trouve rien, l'album est tout de même inséré avec l'image Discogs et sans lien streaming.
+    """
+    processed = len(request.albums)
+    success = 0
+    failed = 0
+
+    for album in request.albums:
+        try:
+            # 1. Dédoublonnage : par discogs_id
+            existing = (
+                supabase.table("albums")
+                .select("id")
+                .eq("discogs_id", album.discogs_id)
+                .execute()
+            )
+            if existing.data and len(existing.data) > 0:
+                continue
+            # Dédoublonnage : par artist + title
+            existing_artist_title = (
+                supabase.table("albums")
+                .select("id")
+                .eq("artist", album.artist)
+                .eq("title", album.title)
+                .execute()
+            )
+            if existing_artist_title.data and len(existing_artist_title.data) > 0:
+                continue
+
+            # 2. Recherche Spotify (non bloquante)
+            spotify_url = None
+            cover_image = album.thumb
+            tracklist = []
+            try:
+                if kissa.sp:
+                    spotify_data = kissa.step_3_spotify(album.artist, album.title)
+                    if spotify_data:
+                        spotify_url = spotify_data.get("spotify_link")
+                        if spotify_data.get("cover_hd"):
+                            cover_image = spotify_data["cover_hd"]
+                        tracklist = spotify_data.get("tracks") or []
+            except Exception as e:
+                print(f"Spotify lookup failed for {album.artist} - {album.title}: {e}")
+
+            # 3. Insertion Supabase
+            discogs_url = album.resource_url or (
+                f"https://www.discogs.com/release/{album.discogs_id}"
+            )
+            new_album = {
+                "artist": album.artist,
+                "title": album.title,
+                "cover_image": cover_image,
+                "year": album.year or "",
+                "label": "",
+                "genre": [],
+                "spotify_url": spotify_url,
+                "discogs_url": discogs_url,
+                "tracklist": tracklist,
+                "discogs_id": album.discogs_id,
+                "tags": ["Imported"],
+            }
+            supabase.table("albums").insert(new_album).execute()
+            success += 1
+        except Exception as e:
+            print(f"Import failed for {album.artist} - {album.title}: {e}")
+            failed += 1
+
+    return DiscogsImportBatchResponse(
+        processed=processed,
+        success=success,
+        failed=failed,
+    )
+
 
 @app.post("/albums/{album_id}/generate-notes")
 async def generate_editorial_notes(album_id: str):
