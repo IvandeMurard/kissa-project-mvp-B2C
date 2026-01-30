@@ -9,10 +9,13 @@ type BroadcastPayload = {
 };
 
 export const useRemoteControl = (
-  onRemoteSelect?: (albumId: string | number) => void
+  onRemoteSelect?: (albumId: string | number) => void,
+  onAlbumUpdated?: (albumId: string) => void
 ) => {
   const onRemoteSelectRef = useRef(onRemoteSelect);
   onRemoteSelectRef.current = onRemoteSelect;
+  const onAlbumUpdatedRef = useRef(onAlbumUpdated);
+  onAlbumUpdatedRef.current = onAlbumUpdated;
 
   // Fonction pour EMETTRE (Mobile -> Desktop)
   const broadcastSelection = useCallback(async (albumId: string | number) => {
@@ -66,6 +69,45 @@ export const useRemoteControl = (
     }
   }, []);
 
+  // Émettre un broadcast "album_updated" après une mutation (mood, acquisition, etc.)
+  const broadcastAlbumUpdate = useCallback(async (albumId: string) => {
+    if (!supabase) {
+      console.debug('Supabase client not available for broadcasting');
+      return;
+    }
+    const client = supabase;
+    let channel: ReturnType<typeof client.channel> | null = null;
+    try {
+      channel = client.channel('kissa-room');
+      const channelRef = channel;
+      const timeoutId = setTimeout(() => {
+        if (channelRef) client.removeChannel(channelRef);
+      }, 5000);
+      await channelRef.subscribe(async (status: ChannelStatus) => {
+        if (status === 'SUBSCRIBED') {
+          try {
+            await channelRef.send({
+              type: 'broadcast',
+              event: 'album_updated',
+              payload: { id: albumId },
+            });
+          } catch (sendError) {
+            console.debug('Error sending album_updated:', sendError);
+          } finally {
+            clearTimeout(timeoutId);
+            if (channelRef) client.removeChannel(channelRef);
+          }
+        } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+          clearTimeout(timeoutId);
+          if (channelRef) client.removeChannel(channelRef);
+        }
+      });
+    } catch (error) {
+      console.debug('Error broadcasting album_updated:', error);
+      if (channel) client.removeChannel(channel);
+    }
+  }, []);
+
   // Fonction pour RECEVOIR (Desktop) — ref pour éviter de se réabonner à chaque changement de onRemoteSelect/allAlbums
   useEffect(() => {
     if (!supabase) return;
@@ -81,6 +123,10 @@ export const useRemoteControl = (
           onRemoteSelectRef.current?.(id);
         }
       })
+      .on('broadcast', { event: 'album_updated' }, (payload: BroadcastPayload) => {
+        const id = payload.payload?.id ?? payload.id;
+        if (id != null) onAlbumUpdatedRef.current?.(String(id));
+      })
       .subscribe();
 
     return () => {
@@ -90,5 +136,5 @@ export const useRemoteControl = (
     };
   }, [supabase]);
 
-  return { broadcastSelection };
+  return { broadcastSelection, broadcastAlbumUpdate };
 };
