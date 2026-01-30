@@ -21,11 +21,15 @@ if sys.platform == 'win32':
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
+import difflib
 import shutil
 import os
+import tempfile
+import unicodedata
 import uuid
 import requests
+import colorgram
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -72,13 +76,14 @@ class CandidateRequest(BaseModel):
     query: str
 
 class PurchaseDataUpdate(BaseModel):
-    """Modèle pour mettre à jour les données d'achat (mémoire personnelle) et la localisation physique"""
+    """Modèle pour mettre à jour les données d'achat (mémoire personnelle), localisation physique et notes personnelles"""
     date: Optional[str] = None
     location: Optional[str] = None
     price: Optional[float] = None
     condition: Optional[str] = None
     storage_location: Optional[str] = None
     mood_colors: Optional[List[str]] = None
+    personal_notes: Optional[str] = None
 
 class GenerateNotesResponse(BaseModel):
     """Réponse de génération de notes éditoriales"""
@@ -91,6 +96,86 @@ class SettingsUpdate(BaseModel):
 
 
 # --- Discogs Bridge ---
+DISCOGS_SPOTIFY_ARTIST_THRESHOLD = 60  # score 0-100 on artist only; below = reject Spotify match
+
+
+def _normalize_for_match(s: str) -> str:
+    """Normalise une chaîne pour la comparaison fuzzy (minuscules, strip, NFD)."""
+    if not s:
+        return ""
+    s = (s or "").strip().lower()
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    return s
+
+
+def _similarity_score(a: str, b: str) -> float:
+    """Score de similarité 0-100 entre deux chaînes (difflib)."""
+    na, nb = _normalize_for_match(a), _normalize_for_match(b)
+    if not na and not nb:
+        return 100.0
+    if not na or not nb:
+        return 0.0
+    return difflib.SequenceMatcher(None, na, nb).ratio() * 100
+
+
+def _extract_dominant_color(source: str, is_url: bool) -> Tuple[Optional[str], Optional[float]]:
+    """
+    Extract dominant color (hex) and hue (0-360) from an image.
+    source: local file path or URL. is_url: True if source is a URL.
+    Returns (hex_str, hue_float) or (None, None) on error.
+    """
+    path: Optional[str] = None
+    try:
+        if is_url:
+            if not source or not source.strip():
+                return (None, None)
+            resp = requests.get(source, timeout=10)
+            resp.raise_for_status()
+            content = resp.content
+            if not content:
+                return (None, None)
+            tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
+            path = tmp.name
+            try:
+                tmp.write(content)
+                tmp.close()
+            except Exception:
+                try:
+                    tmp.close()
+                except Exception:
+                    pass
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
+                return (None, None)
+        else:
+            if not source or not os.path.isfile(source):
+                return (None, None)
+            path = source
+
+        colors = colorgram.extract(path, 1)
+        if not colors:
+            return (None, None)
+        c = colors[0]
+        r, g, b = c.rgb.r, c.rgb.g, c.rgb.b
+        hex_str = "#%02x%02x%02x" % (r, g, b)
+        # colorgram hsl: h,s,l in 0-255; convert h to 0-360
+        h_raw = c.hsl.h
+        hue_float = (h_raw / 255.0) * 360.0 if h_raw is not None else None
+        return (hex_str, hue_float)
+    except Exception as e:
+        print(f"Dominant color extraction failed: {e}")
+        return (None, None)
+    finally:
+        if is_url and path and os.path.isfile(path):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+
 class DiscogsCollectionItem(BaseModel):
     """Un album simplifié renvoyé par GET /discogs/collection/{username}"""
     discogs_id: int
@@ -99,6 +184,7 @@ class DiscogsCollectionItem(BaseModel):
     year: Optional[str] = None
     thumb: Optional[str] = None
     resource_url: Optional[str] = None
+    cover_image: Optional[str] = None
 
 
 class DiscogsImportBatchRequest(BaseModel):
@@ -166,16 +252,19 @@ async def scan_vinyl(file: UploadFile = File(...)):
 
         # B. Analyse Kissa
         result = kissa.process(file_location)
+
+        # C. Couleur dominante (avant suppression du fichier)
+        dominant_color, dominant_hue = _extract_dominant_color(file_location, is_url=False)
         
-        # C. Nettoyage image après analyse
+        # D. Nettoyage image après analyse
         if os.path.exists(file_location):
             os.remove(file_location)
             
-        # D. Vérification erreur
+        # E. Vérification erreur
         if result.get("status") == "error":
             raise HTTPException(status_code=400, detail=result["message"])
 
-        # E. Sauvegarde dans Supabase
+        # F. Sauvegarde dans Supabase
         new_album = {
             "artist": result['display']['artist'],
             "title": result['display']['title'],
@@ -187,6 +276,10 @@ async def scan_vinyl(file: UploadFile = File(...)):
             "discogs_url": result['links']['discogs_url'],
             "tracklist": result['details']['tracklist']
         }
+        if dominant_color is not None:
+            new_album["dominant_color"] = dominant_color
+        if dominant_hue is not None:
+            new_album["dominant_hue"] = dominant_hue
 
         print("💾 Sauvegarde en base de données...")
         supabase.table("albums").insert(new_album).execute()
@@ -217,6 +310,9 @@ async def add_vinyl_by_id(request: AddByIdRequest):
         if result.get("status") == "error":
             raise HTTPException(status_code=404, detail=result["message"])
 
+        cover_image_url = result.get("display", {}).get("cover_image")
+        dominant_color, dominant_hue = _extract_dominant_color(cover_image_url or "", is_url=True)
+
         # Sauvegarde dans Supabase
         new_album = {
             "artist": result['display']['artist'],
@@ -229,7 +325,11 @@ async def add_vinyl_by_id(request: AddByIdRequest):
             "discogs_url": result['links']['discogs_url'],
             "tracklist": result['details']['tracklist']
         }
-        
+        if dominant_color is not None:
+            new_album["dominant_color"] = dominant_color
+        if dominant_hue is not None:
+            new_album["dominant_hue"] = dominant_hue
+
         supabase.table("albums").insert(new_album).execute()
         return result
     except HTTPException as he:
@@ -319,6 +419,7 @@ def get_discogs_collection(username: str):
             year = str(year_val) if year_val is not None else None
             thumb = info.get("thumb")
             resource_url = info.get("resource_url")
+            cover_image = info.get("cover_image")
             all_items.append(
                 DiscogsCollectionItem(
                     discogs_id=int(release_id),
@@ -327,6 +428,7 @@ def get_discogs_collection(username: str):
                     year=year,
                     thumb=thumb,
                     resource_url=resource_url,
+                    cover_image=cover_image,
                 )
             )
 
@@ -342,8 +444,8 @@ def get_discogs_collection(username: str):
 async def discogs_import_batch(request: DiscogsImportBatchRequest):
     """
     Importe par lots des albums au format simplifié (ex. issus de GET /discogs/collection/{username}).
-    Pour chaque album : dédoublonnage (discogs_id ou artist+title), recherche Spotify, insertion Supabase.
-    Si Spotify ne trouve rien, l'album est tout de même inséré avec l'image Discogs et sans lien streaming.
+    Dédoublonnage uniquement par discogs_id (plusieurs éditions = plusieurs imports).
+    Match Spotify validé par fuzzy matching (seuil 80/100) ; sinon image Discogs (cover_image ou thumb).
     """
     processed = len(request.albums)
     success = 0
@@ -351,7 +453,7 @@ async def discogs_import_batch(request: DiscogsImportBatchRequest):
 
     for album in request.albums:
         try:
-            # 1. Dédoublonnage : par discogs_id
+            # 1. Dédoublonnage : par discogs_id uniquement (permettre plusieurs éditions artist+title)
             existing = (
                 supabase.table("albums")
                 .select("id")
@@ -360,33 +462,34 @@ async def discogs_import_batch(request: DiscogsImportBatchRequest):
             )
             if existing.data and len(existing.data) > 0:
                 continue
-            # Dédoublonnage : par artist + title
-            existing_artist_title = (
-                supabase.table("albums")
-                .select("id")
-                .eq("artist", album.artist)
-                .eq("title", album.title)
-                .execute()
-            )
-            if existing_artist_title.data and len(existing_artist_title.data) > 0:
-                continue
 
-            # 2. Recherche Spotify (non bloquante)
+            # 2. Recherche Spotify + fuzzy matching (artiste seul, seuil 60 %)
             spotify_url = None
-            cover_image = album.thumb
+            cover_image = album.cover_image or album.thumb
             tracklist = []
             try:
-                if kissa.sp:
-                    spotify_data = kissa.step_3_spotify(album.artist, album.title)
+                if kissa.sp and (album.artist or "").strip():
+                    search_query = f"album:{album.title} artist:{album.artist}"
+                    spotify_data = kissa.step_3_spotify(album.artist, album.title, search_query=search_query)
                     if spotify_data:
-                        spotify_url = spotify_data.get("spotify_link")
-                        if spotify_data.get("cover_hd"):
-                            cover_image = spotify_data["cover_hd"]
-                        tracklist = spotify_data.get("tracks") or []
+                        spotify_artist = spotify_data.get("spotify_artist") or ""
+                        score_artist = _similarity_score(album.artist, spotify_artist)
+                        if score_artist >= DISCOGS_SPOTIFY_ARTIST_THRESHOLD:
+                            spotify_url = spotify_data.get("spotify_link")
+                            if spotify_data.get("cover_hd"):
+                                cover_image = spotify_data["cover_hd"]
+                            tracklist = spotify_data.get("tracks") or []
+                        else:
+                            pass  # rejeter le match : garder spotify_url=None, cover Discogs
             except Exception as e:
                 print(f"Spotify lookup failed for {album.artist} - {album.title}: {e}")
 
-            # 3. Insertion Supabase
+            # 3. Couleur dominante (cover_image = URL)
+            dominant_color, dominant_hue = (None, None)
+            if cover_image:
+                dominant_color, dominant_hue = _extract_dominant_color(cover_image, is_url=True)
+
+            # 4. Insertion Supabase
             discogs_url = album.resource_url or (
                 f"https://www.discogs.com/release/{album.discogs_id}"
             )
@@ -403,6 +506,10 @@ async def discogs_import_batch(request: DiscogsImportBatchRequest):
                 "discogs_id": album.discogs_id,
                 "tags": ["Imported"],
             }
+            if dominant_color is not None:
+                new_album["dominant_color"] = dominant_color
+            if dominant_hue is not None:
+                new_album["dominant_hue"] = dominant_hue
             supabase.table("albums").insert(new_album).execute()
             success += 1
         except Exception as e:
@@ -533,26 +640,30 @@ async def update_purchase_context(album_id: str, purchase_data: PurchaseDataUpda
         
         has_storage = purchase_data.storage_location is not None
         has_mood_colors = purchase_data.mood_colors is not None
-        
-        # Au moins un champ requis (purchase, storage_location ou mood_colors)
-        if not purchase_dict and not has_storage and not has_mood_colors:
+        has_personal_notes = purchase_data.personal_notes is not None
+
+        # Au moins un champ requis (purchase, storage_location, mood_colors ou personal_notes)
+        if not purchase_dict and not has_storage and not has_mood_colors and not has_personal_notes:
             raise HTTPException(
                 status_code=400,
-                detail="Au moins un champ doit être fourni (date, location, price, condition, storage_location, mood_colors)"
+                detail="Au moins un champ doit être fourni (date, location, price, condition, storage_location, mood_colors, personal_notes)"
             )
-        
+
         update_payload = {}
-        
+
         if purchase_dict:
             existing_response = supabase.table("albums").select("purchase_data").eq("id", album_id).execute()
             existing_purchase_data = existing_response.data[0].get("purchase_data") or {}
             update_payload["purchase_data"] = {**existing_purchase_data, **purchase_dict}
-        
+
         if has_storage:
             update_payload["storage_location"] = purchase_data.storage_location
-        
+
         if has_mood_colors:
             update_payload["mood_colors"] = purchase_data.mood_colors
+
+        if has_personal_notes:
+            update_payload["personal_notes"] = purchase_data.personal_notes
         
         update_response = supabase.table("albums").update(update_payload).eq("id", album_id).execute()
         

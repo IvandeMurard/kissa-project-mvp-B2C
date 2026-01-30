@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 
-import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock, Sparkles, MapPin, CheckSquare, Edit3, CheckCircle } from "lucide-react";
+import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock, Sparkles, MapPin, CheckSquare, Edit3 } from "lucide-react";
 
 import { supabase } from "@/lib/supabaseClient";
 
@@ -40,6 +40,8 @@ interface Album {
   dominant_color?: string | null;
 
   dominant_hue?: number | null;
+
+  personal_notes?: string | null;
 
 }
 
@@ -99,6 +101,7 @@ function formatAlbumRow(item: any): Album {
     mood_colors: item.mood_colors || [],
     dominant_color: item.dominant_color ?? null,
     dominant_hue: item.dominant_hue ?? null,
+    personal_notes: item.personal_notes ?? null,
   };
 }
 
@@ -912,8 +915,8 @@ export default function Home() {
         <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-md border-b border-white/5 px-6 py-4 flex flex-col md:flex-row justify-between gap-4">
           <div className="flex items-center gap-6">
             <h1 className="lightbox-sign inline-block rounded-xl px-4 py-2 text-sm">喫茶 Kissa</h1>
-            {/* Menu Admin (cadenas) */}
-            <div ref={adminMenuRef} className="relative">
+            {/* Menu Admin mécanique (inline, s'étend à droite) */}
+            <div ref={adminMenuRef} className="flex items-center gap-0 overflow-visible">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -921,52 +924,58 @@ export default function Home() {
                   haptic.light();
                   sounds.playSwitch();
                 }}
-                className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all touch-manipulation"
+                className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all touch-manipulation shrink-0"
                 title={isManageMode ? "Verrouiller" : "Déverrouiller"}
               >
                 {isManageMode ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
               </button>
-              {isAdminMenuOpen && (
-                <div className="absolute left-0 top-full mt-1 z-50 min-w-[160px] bg-zinc-900 border border-white/10 rounded-lg shadow-xl py-1 animate-in fade-in duration-150">
+              <div
+                className={`overflow-hidden transition-all duration-300 ease-out flex items-center ${
+                  isAdminMenuOpen ? "max-w-[200px] opacity-100 ml-1" : "max-w-0 opacity-0"
+                }`}
+              >
+                <div className="flex items-center gap-1 pl-1 border border-white/10 rounded-r-full bg-zinc-900/90 border-l-0 py-0.5 pr-1">
                   <button
                     onClick={() => {
                       setIsSelectionMode((prev) => !prev);
                       if (isSelectionMode) setSelectedAlbumIds(new Set());
-                      setIsAdminMenuOpen(false);
                       haptic.light();
                     }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-white/10 ${isSelectionMode ? "bg-blue-500/20 text-blue-300" : "text-neutral-200"}`}
+                    className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors touch-manipulation ${isSelectionMode ? "bg-amber-500/30 text-amber-400" : "text-neutral-400 hover:bg-white/10 hover:text-white"}`}
                     title="Sélection"
                   >
                     <CheckSquare className="w-4 h-4 shrink-0" />
-                    Sélection
-                  </button>
-                  <button
-                    onClick={async () => {
-                      setIsAdminMenuOpen(false);
-                      await handleBatchDelete();
-                    }}
-                    disabled={selectedAlbumIds.size === 0}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-neutral-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    title="Supprimer les albums sélectionnés"
-                  >
-                    <Trash2 className="w-4 h-4 shrink-0" />
-                    Supprimer
                   </button>
                   <button
                     onClick={() => {
                       setIsManageMode((prev) => !prev);
-                      setIsAdminMenuOpen(false);
                       haptic.light();
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-neutral-200 hover:bg-white/10 transition-colors"
+                    className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors touch-manipulation"
                     title="Éditer"
                   >
                     <Edit3 className="w-4 h-4 shrink-0" />
-                    Éditer
+                  </button>
+                  <button
+                    onClick={async () => await handleBatchDelete()}
+                    disabled={selectedAlbumIds.size === 0}
+                    className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation"
+                    title="Supprimer les albums sélectionnés"
+                  >
+                    <Trash2 className="w-4 h-4 shrink-0" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsAdminMenuOpen(false);
+                      haptic.light();
+                    }}
+                    className="flex items-center justify-center w-7 h-7 rounded-full text-neutral-500 hover:bg-white/10 hover:text-white transition-colors touch-manipulation ml-0.5"
+                    title="Fermer"
+                  >
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
@@ -1111,9 +1120,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                   className={`group relative aspect-square bg-[#111] overflow-hidden border animate-in fade-in duration-300 transition-all ${
                     isSelectionMode ? "cursor-pointer" : "cursor-default"
                   } ${
-                    selectedAlbumIds.has(album.id) ? "border-2 border-blue-500 ring-2 ring-blue-500/30" : "border border-white/5"
-                  } ${
-                    isSelectionMode && !selectedAlbumIds.has(album.id) ? "opacity-70" : ""
+                    selectedAlbumIds.has(album.id) ? "border-4 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)] ring-4 ring-amber-500/30" : "border border-white/5"
                   }`}
                 >
                   <img 
@@ -1122,15 +1129,14 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                     onClick={() => {
                       if (!isSelectionMode && window.innerWidth < 768) handleAlbumClick(album);
                     }}
-                    className={`w-full h-full object-cover transition-transform duration-500 ease-out md:relative md:z-10 md:group-hover:-translate-x-full group-hover:scale-110 md:group-hover:scale-100 touch-manipulation ${
-                      isSelectionMode ? "scale-95 cursor-pointer" : "cursor-pointer md:cursor-default"
-                    } ${currentTrack?.id === album.id ? "opacity-50 grayscale" : ""}`}
+                    className={`w-full h-full object-cover transition-all duration-300 ease-out touch-manipulation ${
+                      gridColumns !== 12 ? "md:relative md:z-10 shadow-md md:group-hover:-translate-y-4 md:group-hover:scale-105 md:group-hover:shadow-2xl" : ""
+                    } ${
+                      isSelectionMode && !selectedAlbumIds.has(album.id) ? "scale-90 opacity-60 grayscale" : ""
+                    } ${
+                      isSelectionMode && selectedAlbumIds.has(album.id) ? "scale-100 opacity-100 grayscale-0" : ""
+                    } ${!isSelectionMode ? "cursor-pointer md:cursor-default" : "cursor-pointer"} ${currentTrack?.id === album.id ? "opacity-50 grayscale" : ""}`}
                   />
-                  {isSelectionMode && selectedAlbumIds.has(album.id) && (
-                    <div className="absolute top-2 right-2 z-30 pointer-events-none">
-                      <CheckCircle className="w-8 h-8 text-blue-500 drop-shadow-md" />
-                    </div>
-                  )}
                   {/* Mood Colors Gommettes */}
                   {album.mood_colors && album.mood_colors.length > 0 && (
                     <div className="absolute top-2 right-2 z-20 flex gap-1 flex-wrap max-w-[60%]">

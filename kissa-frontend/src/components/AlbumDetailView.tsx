@@ -15,6 +15,7 @@ interface Album {
   storage_location?: string | null;
   focus_track_indices?: number[];
   mood_colors?: string[] | null;
+  personal_notes?: string | null;
 }
 
 interface AlbumDetailViewProps {
@@ -136,10 +137,10 @@ export function AlbumDetailView({
     }
   };
 
-  // Fonction pour mettre à jour les données d'achat et la localisation
+  // Fonction pour mettre à jour les données d'achat, la localisation et les notes personnelles
   const handleUpdatePurchaseData = async (
     albumId: string,
-    data: { date?: string; location?: string; price?: number; condition?: string; storage_location?: string | null }
+    data: { date?: string; location?: string; price?: number; condition?: string; storage_location?: string | null; personal_notes?: string | null }
   ) => {
     setIsSavingPurchaseData(true);
 
@@ -158,14 +159,15 @@ export function AlbumDetailView({
       }
 
       const updatedAlbum = await response.json();
-      
+
       const updated = {
         ...localAlbum,
         purchase_data: updatedAlbum.purchase_data ?? localAlbum.purchase_data,
         storage_location: updatedAlbum.storage_location ?? localAlbum.storage_location,
+        personal_notes: updatedAlbum.personal_notes ?? localAlbum.personal_notes,
       };
       setLocalAlbum(updated);
-      
+
       (onUpdate ?? onUpdateAlbum)?.(updated);
     } catch (error) {
       console.error("❌ Erreur lors de la mise à jour:", error);
@@ -642,6 +644,26 @@ export function AlbumDetailView({
                     />
                   </div>
                 </div>
+              </div>
+              {/* Notes personnelles */}
+              <div className={`mt-4 ${compact ? "p-3" : "p-4"} border border-zinc-700/50 rounded-lg bg-transparent`}>
+                <h4 className={`text-xs uppercase tracking-wider text-zinc-400 ${compact ? "mb-2" : "mb-3"} amp-label`}>
+                  Notes personnelles
+                </h4>
+                <textarea
+                  placeholder="Pensées, date d'écoute, souvenir…"
+                  value={localAlbum.personal_notes ?? ""}
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    const prev = localAlbum.personal_notes ?? "";
+                    if (val !== prev) {
+                      handleUpdatePurchaseData(localAlbum.id, { personal_notes: val || null });
+                    }
+                  }}
+                  onChange={(e) => setLocalAlbum((prev) => ({ ...prev, personal_notes: e.target.value ?? null }))}
+                  className="w-full min-h-[100px] bg-transparent border-none text-white text-sm font-mono focus:outline-none focus:ring-0 placeholder:text-zinc-600 resize-y"
+                  rows={4}
+                />
               </div>
             </div>
           ) : tab === "vibe" ? (
