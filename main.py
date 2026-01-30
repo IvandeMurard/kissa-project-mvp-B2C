@@ -469,7 +469,31 @@ IMPORTANT : Si l'image est trop abîmée ou illisible, retourne confidence: "low
 
             return None
 
-
+    def get_discogs_release_details(self, discogs_id):
+        """
+        Récupère tracklist, label, year, genre pour un discogs_id (Release ou Master).
+        Retourne {"tracklist": [...], "label": str, "year": str, "genre": list} ou None.
+        """
+        try:
+            try:
+                album = self.discogs.release(discogs_id)
+            except Exception:
+                master = self.discogs.master(discogs_id)
+                if hasattr(master, 'main_release') and master.main_release:
+                    album = self.discogs.release(master.main_release.id)
+                elif hasattr(master, 'versions') and master.versions:
+                    first = master.versions[0]
+                    album = self.discogs.release(first.id)
+                else:
+                    return None
+            tracklist = [t.title for t in album.tracklist if t.position] if hasattr(album, 'tracklist') and album.tracklist else []
+            label = album.labels[0].name if album.labels else ""
+            year = str(album.year) if getattr(album, 'year', None) else ""
+            genre = getattr(album, 'genres', None) or []
+            return {"tracklist": tracklist, "label": label, "year": year, "genre": genre}
+        except Exception as e:
+            print(f"get_discogs_release_details failed for {discogs_id}: {e}")
+            return None
 
     def _fetch_spotify_tracks(self, album_id):
 
@@ -574,19 +598,17 @@ IMPORTANT : Si l'image est trop abîmée ou illisible, retourne confidence: "low
 
         print("Recherche Spotify...")
 
-        # Utiliser search_query optimisé si fourni, sinon construire la requête classique
+        # Ne jamais chercher sans nom d'artiste
+        if not (artist or "").strip():
+            print("   ⚠️ Artiste vide, recherche Spotify ignorée")
+            return None
 
+        # Utiliser search_query optimisé si fourni, sinon requête stricte album + artist
         if search_query:
-
             q = search_query
-
-            print(f"   Utilisation search_query optimisé : {q}")
-
+            print(f"   Utilisation search_query : {q}")
         else:
-
-            q = f"artist:{artist} album:{album_title}"
-
-        
+            q = f"album:{album_title} artist:{artist}"
 
         try:
 
@@ -606,44 +628,46 @@ IMPORTANT : Si l'image est trop abîmée ou illisible, retourne confidence: "low
 
                 print(f"   ✅ Album trouvé sur Spotify: {album_name} (ID: {album_id})")
 
-                
+                # Métadonnées complètes via Get Album (release_date, label, genres)
+                year, label, genres = "", "", []
+                try:
+                    full_album = self.sp.album(album_id)
+                    if full_album:
+                        rd = full_album.get("release_date") or ""
+                        year = rd[:4] if len(rd) >= 4 else rd
+                        label = full_album.get("label") or ""
+                        genres = full_album.get("genres") or []
+                except Exception as meta_err:
+                    print(f"   ⚠️ Get Album metadata failed: {meta_err}")
 
                 # Spotify classe les images par taille, index 0 = la plus grande (640x640)
-
                 hd_cover = spotify_album['images'][0]['url'] if spotify_album['images'] else None
 
-                
-
                 # Récupérer les tracks avec pagination
-
                 tracks = self._fetch_spotify_tracks(album_id)
 
-                
-                
                 if tracks is None:
-
                     print(f"   ⚠️ Aucune tracklist récupérée depuis Spotify pour {album_name}")
-
                 elif len(tracks) == 0:
-
                     print(f"   ⚠️ Tracklist vide depuis Spotify pour {album_name}")
-
                 else:
-
                     print(f"   ✅ Tracklist récupérée: {len(tracks)} pistes pour {album_name}")
 
-                
+                # Noms pour fuzzy matching (import batch)
+                artists = spotify_album.get("artists") or []
+                spotify_artist = ", ".join(a.get("name", "") for a in artists if a.get("name")) or "Unknown"
+                spotify_album_title = spotify_album.get("name", "Unknown")
 
                 return {
-
                     "spotify_link": spotify_album['external_urls']['spotify'],
-
                     "spotify_uri": spotify_album['uri'],
-
                     "cover_hd": hd_cover,
-
-                    "tracks": tracks
-
+                    "tracks": tracks,
+                    "spotify_artist": spotify_artist,
+                    "spotify_album_title": spotify_album_title,
+                    "year": year,
+                    "label": label,
+                    "genres": genres,
                 }
 
             else:

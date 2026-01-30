@@ -8,10 +8,15 @@ type BroadcastPayload = {
   id?: string | number;
 };
 
+export type RemoteControlActions = {
+  broadcastSelection: (albumId: string | number) => Promise<void>;
+  broadcastAlbumUpdate: (albumId: string) => Promise<void>;
+};
+
 export const useRemoteControl = (
   onRemoteSelect?: (albumId: string | number) => void,
   onAlbumUpdated?: (albumId: string) => void
-) => {
+): RemoteControlActions => {
   const onRemoteSelectRef = useRef(onRemoteSelect);
   onRemoteSelectRef.current = onRemoteSelect;
   const onAlbumUpdatedRef = useRef(onAlbumUpdated);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
 const CHUNK_SIZE = 5;
@@ -265,20 +266,28 @@ export function DiscogsImporter({ API_URL }: DiscogsImporterProps) {
               .
             </p>
           )}
-          <button
-            type="button"
-            onClick={() => {
-              setPhase("input");
-              setCollection([]);
-              setDone(0);
-              setTotal(0);
-              setLastAlbum(null);
-              setImportSummary(null);
-            }}
-            className="px-4 py-2 rounded text-sm bg-white text-black font-bold uppercase hover:bg-neutral-200"
-          >
-            Import another collection
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 items-center sm:items-stretch">
+            <Link
+              href="/"
+              className="px-4 py-2 rounded text-sm bg-white text-black font-bold uppercase hover:bg-neutral-200 text-center transition-colors"
+            >
+              GO TO COLLECTION
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setPhase("input");
+                setCollection([]);
+                setDone(0);
+                setTotal(0);
+                setLastAlbum(null);
+                setImportSummary(null);
+              }}
+              className="px-3 py-1.5 rounded text-xs text-neutral-400 hover:text-white border border-neutral-600 hover:border-neutral-500 transition-colors"
+            >
+              Import more
+            </button>
+          </div>
         </>
       )}
     </div>

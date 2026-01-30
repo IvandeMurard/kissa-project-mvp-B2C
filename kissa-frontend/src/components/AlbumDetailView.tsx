@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Sparkles, ExternalLink, Trash2, Play, RefreshCw } from "lucide-react";
+import { Loader2, Sparkles, ExternalLink, Trash2, Play, RefreshCw, Check } from "lucide-react";
 import { useHaptic } from "@/hooks/useHaptic";
 import { useMoodContext } from "@/contexts/MoodContext";
 
@@ -68,6 +68,8 @@ export function AlbumDetailView({
   const [storyError, setStoryError] = useState<string | null>(null);
   const [hoveredMoodVibe, setHoveredMoodVibe] = useState<string | null>(null);
   const [tooltipPositionVibe, setTooltipPositionVibe] = useState<{ x: number; y: number } | null>(null);
+  const [isSavingMoodColors, setIsSavingMoodColors] = useState(false);
+  const [moodColorsJustSaved, setMoodColorsJustSaved] = useState(false);
 
   // Synchroniser localAlbum et optimisticFocusIndices avec initialAlbum si l'album change
   useEffect(() => {
@@ -180,16 +182,34 @@ export function AlbumDetailView({
   const handleUpdateMoodColors = async (albumId: string, newColors: string[]) => {
     // Sauvegarder l'état actuel pour rollback en cas d'erreur
     const previousColors = [...optimisticMoodColors];
-    
+
+    // Déduire ajout vs retrait pour le toast
+    const addedColor = newColors.find((c) => !previousColors.includes(c));
+    const removedColor = previousColors.find((c) => !newColors.includes(c));
+    const affectedColor = addedColor ?? removedColor;
+    const label = affectedColor ? moodOptions.find((m) => m.color === affectedColor)?.label : null;
+
     // Mise à jour optimiste immédiate
     setOptimisticMoodColors(newColors);
-    
+
     // Mettre à jour localAlbum immédiatement
     const updated = {
       ...localAlbum,
       mood_colors: newColors,
     };
     setLocalAlbum(updated);
+
+    // Notifier le parent tout de suite (instantané)
+    (onUpdate ?? onUpdateAlbum)?.(updated);
+
+    // Toast succès immédiat (add / remove)
+    if (addedColor) {
+      showSuccessToast(`Mood added: ${label ?? "Mood"} 🔵`);
+    } else if (removedColor) {
+      showSuccessToast("Mood removed");
+    }
+
+    setIsSavingMoodColors(true);
 
     // Appel API en arrière-plan
     try {
@@ -207,21 +227,22 @@ export function AlbumDetailView({
       }
 
       const updatedAlbum = await response.json();
-      
+
       // Synchroniser avec la réponse serveur
       const serverColors = updatedAlbum.mood_colors || [];
       setOptimisticMoodColors(serverColors);
-      
+
       // Mettre à jour localAlbum et notifier le parent
       const finalUpdated = {
         ...localAlbum,
         mood_colors: serverColors,
       };
       setLocalAlbum(finalUpdated);
-      
-      if (onUpdateAlbum) {
-        onUpdateAlbum(finalUpdated);
-      }
+
+      (onUpdate ?? onUpdateAlbum)?.(finalUpdated);
+
+      setMoodColorsJustSaved(true);
+      setTimeout(() => setMoodColorsJustSaved(false), 2000);
     } catch (error) {
       // Rollback en cas d'erreur
       setOptimisticMoodColors(previousColors);
@@ -232,6 +253,8 @@ export function AlbumDetailView({
       setLocalAlbum(rollbackUpdated);
       showErrorToast("Erreur lors de la mise à jour. Veuillez réessayer.");
       console.error("❌ Erreur lors de la mise à jour des mood colors:", error);
+    } finally {
+      setIsSavingMoodColors(false);
     }
   };
 
@@ -668,7 +691,7 @@ export function AlbumDetailView({
             </div>
           ) : tab === "vibe" ? (
             /* Onglet VIBE - Gommettes centrées */
-            <div className="flex items-start justify-center py-12">
+            <div className="flex flex-col items-center py-12">
               <div className="grid grid-cols-3 gap-6 max-w-md">
                 {moodOptions.map((mood) => {
                   const isSelected = optimisticMoodColors.includes(mood.color);
@@ -708,6 +731,23 @@ export function AlbumDetailView({
                   );
                 })}
               </div>
+              {/* Indicateur Saving / Saved à côté des gommettes */}
+              {(isSavingMoodColors || moodColorsJustSaved) && (
+                <div className="flex items-center gap-1.5 mt-3 text-xs text-zinc-400">
+                  {isSavingMoodColors && (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
+                      <span>Saving...</span>
+                    </>
+                  )}
+                  {!isSavingMoodColors && moodColorsJustSaved && (
+                    <>
+                      <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
+                      <span className="text-green-500">Saved</span>
+                    </>
+                  )}
+                </div>
+              )}
               {/* Tooltip avec position fixed pour VIBE */}
               {hoveredMoodVibe && tooltipPositionVibe && (
                 <div

@@ -119,6 +119,17 @@ def _similarity_score(a: str, b: str) -> float:
     return difflib.SequenceMatcher(None, na, nb).ratio() * 100
 
 
+def get_dominant_color(image_url: str) -> Optional[str]:
+    """
+    Returns dominant color as hex (#RRGGBB) from an image URL, or None on error.
+    Used by import-batch for dominant_color column.
+    """
+    if not image_url or not str(image_url).strip():
+        return None
+    hex_str, _ = _extract_dominant_color(image_url, is_url=True)
+    return hex_str
+
+
 def _extract_dominant_color(source: str, is_url: bool) -> Tuple[Optional[str], Optional[float]]:
     """
     Extract dominant color (hex) and hue (0-360) from an image.
@@ -440,12 +451,23 @@ def get_discogs_collection(username: str):
     return all_items
 
 
+def _is_empty(val, kind="str"):
+    """Valeur considérée vide pour l'upsert (ne pas écraser si déjà renseigné)."""
+    if val is None:
+        return True
+    if kind == "str":
+        return (val or "").strip() == ""
+    if kind == "list":
+        return not (val if isinstance(val, list) else [])
+    return False
+
+
 @app.post("/discogs/import-batch", response_model=DiscogsImportBatchResponse)
 async def discogs_import_batch(request: DiscogsImportBatchRequest):
     """
     Importe par lots des albums au format simplifié (ex. issus de GET /discogs/collection/{username}).
-    Dédoublonnage uniquement par discogs_id (plusieurs éditions = plusieurs imports).
-    Match Spotify validé par fuzzy matching (seuil 80/100) ; sinon image Discogs (cover_image ou thumb).
+    Upsert par discogs_id : si l'album existe, met à jour uniquement les champs vides (jamais écraser spotify_url).
+    Enrichissement : tracklist/label/year/genre via Spotify puis fallback Discogs ; dominant_color depuis la cover.
     """
     processed = len(request.albums)
     success = 0
@@ -453,20 +475,23 @@ async def discogs_import_batch(request: DiscogsImportBatchRequest):
 
     for album in request.albums:
         try:
-            # 1. Dédoublonnage : par discogs_id uniquement (permettre plusieurs éditions artist+title)
-            existing = (
+            # 1. Existant par discogs_id (champs nécessaires pour upsert)
+            existing_res = (
                 supabase.table("albums")
-                .select("id")
+                .select("id, spotify_url, tracklist, label, year, genre, cover_image, dominant_color, dominant_hue")
                 .eq("discogs_id", album.discogs_id)
                 .execute()
             )
-            if existing.data and len(existing.data) > 0:
-                continue
+            existing_row = existing_res.data[0] if existing_res.data and len(existing_res.data) > 0 else None
+            existing_id = existing_row["id"] if existing_row else None
 
-            # 2. Recherche Spotify + fuzzy matching (artiste seul, seuil 60 %)
+            # 2. Spotify (priorité) : tracklist + year, label, genres
             spotify_url = None
             cover_image = album.cover_image or album.thumb
             tracklist = []
+            year = album.year or ""
+            label = ""
+            genre = []
             try:
                 if kissa.sp and (album.artist or "").strip():
                     search_query = f"album:{album.title} artist:{album.artist}"
@@ -479,39 +504,77 @@ async def discogs_import_batch(request: DiscogsImportBatchRequest):
                             if spotify_data.get("cover_hd"):
                                 cover_image = spotify_data["cover_hd"]
                             tracklist = spotify_data.get("tracks") or []
-                        else:
-                            pass  # rejeter le match : garder spotify_url=None, cover Discogs
+                            year = spotify_data.get("year") or year
+                            label = spotify_data.get("label") or ""
+                            genre = spotify_data.get("genres") or []
             except Exception as e:
                 print(f"Spotify lookup failed for {album.artist} - {album.title}: {e}")
 
-            # 3. Couleur dominante (cover_image = URL)
+            # 3. Discogs fallback : si tracklist ou métadonnées manquants
+            if (not tracklist or _is_empty(label, "str") or _is_empty(year, "str") or _is_empty(genre, "list")):
+                discogs_details = kissa.get_discogs_release_details(album.discogs_id)
+                if discogs_details:
+                    if not tracklist and discogs_details.get("tracklist"):
+                        tracklist = discogs_details["tracklist"]
+                    if _is_empty(label, "str") and discogs_details.get("label"):
+                        label = discogs_details["label"]
+                    if _is_empty(year, "str") and discogs_details.get("year"):
+                        year = discogs_details["year"]
+                    if _is_empty(genre, "list") and discogs_details.get("genre"):
+                        genre = discogs_details["genre"]
+
+            # 4. Couleur dominante (cover_image = URL)
             dominant_color, dominant_hue = (None, None)
             if cover_image:
                 dominant_color, dominant_hue = _extract_dominant_color(cover_image, is_url=True)
 
-            # 4. Insertion Supabase
             discogs_url = album.resource_url or (
                 f"https://www.discogs.com/release/{album.discogs_id}"
             )
-            new_album = {
-                "artist": album.artist,
-                "title": album.title,
-                "cover_image": cover_image,
-                "year": album.year or "",
-                "label": "",
-                "genre": [],
-                "spotify_url": spotify_url,
-                "discogs_url": discogs_url,
-                "tracklist": tracklist,
-                "discogs_id": album.discogs_id,
-                "tags": ["Imported"],
-            }
-            if dominant_color is not None:
-                new_album["dominant_color"] = dominant_color
-            if dominant_hue is not None:
-                new_album["dominant_hue"] = dominant_hue
-            supabase.table("albums").insert(new_album).execute()
-            success += 1
+
+            if existing_row:
+                # Upsert : ne mettre à jour que les champs vides (jamais écraser spotify_url renseigné)
+                payload = {}
+                if _is_empty(existing_row.get("spotify_url"), "str") and spotify_url:
+                    payload["spotify_url"] = spotify_url
+                if _is_empty(existing_row.get("tracklist"), "list") and tracklist:
+                    payload["tracklist"] = tracklist
+                if _is_empty(existing_row.get("label"), "str") and label:
+                    payload["label"] = label
+                if _is_empty(existing_row.get("year"), "str") and year:
+                    payload["year"] = year
+                if _is_empty(existing_row.get("genre"), "list") and genre:
+                    payload["genre"] = genre
+                if _is_empty(existing_row.get("cover_image"), "str") and cover_image:
+                    payload["cover_image"] = cover_image
+                if existing_row.get("dominant_color") is None and dominant_color is not None:
+                    payload["dominant_color"] = dominant_color
+                if existing_row.get("dominant_hue") is None and dominant_hue is not None:
+                    payload["dominant_hue"] = dominant_hue
+                if payload:
+                    supabase.table("albums").update(payload).eq("id", existing_id).execute()
+                success += 1
+            else:
+                # Insert nouveau
+                new_album = {
+                    "artist": album.artist,
+                    "title": album.title,
+                    "cover_image": cover_image,
+                    "year": year,
+                    "label": label,
+                    "genre": genre,
+                    "spotify_url": spotify_url,
+                    "discogs_url": discogs_url,
+                    "tracklist": tracklist,
+                    "discogs_id": album.discogs_id,
+                    "tags": ["Imported"],
+                }
+                if dominant_color is not None:
+                    new_album["dominant_color"] = dominant_color
+                if dominant_hue is not None:
+                    new_album["dominant_hue"] = dominant_hue
+                supabase.table("albums").insert(new_album).execute()
+                success += 1
         except Exception as e:
             print(f"Import failed for {album.artist} - {album.title}: {e}")
             failed += 1
