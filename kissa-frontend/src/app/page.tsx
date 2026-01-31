@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 
-import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock, Sparkles, MapPin, CheckSquare, Edit3 } from "lucide-react";
+import { Loader2, Search, Trash2, Camera, Play, X, Keyboard, Plus, Disc, ExternalLink, Edit, Library, Scan, Settings, Lock, Unlock, Sparkles, MapPin, CheckSquare, Edit3, SlidersHorizontal } from "lucide-react";
 
 import { supabase } from "@/lib/supabaseClient";
 
@@ -386,7 +386,10 @@ export default function Home() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedAlbumIds, setSelectedAlbumIds] = useState<Set<string>>(new Set());
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isShelfSearchExpanded, setIsShelfSearchExpanded] = useState(false);
   const adminMenuRef = useRef<HTMLDivElement | null>(null);
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const closeAdminMenu = useCallback(() => {
     setIsAdminMenuOpen(false);
@@ -405,6 +408,18 @@ export default function Home() {
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [isAdminMenuOpen, closeAdminMenu]);
+
+  // Fermer le menu View Options (mobile) au clic extérieur
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [isMobileMenuOpen]);
 
   // Haptic feedback hook
   const haptic = useHaptic();
@@ -1031,117 +1046,176 @@ export default function Home() {
 
       {/* HEADER - Affiché uniquement pour SHELF */}
       {currentView === "SHELF" && (
-        <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-md border-b border-white/5 px-6 py-4 flex flex-col md:flex-row justify-between gap-4">
-          <div className="flex items-center gap-6">
-            <h1 className="lightbox-sign inline-block rounded-xl px-4 py-2 text-sm">喫茶 Kissa</h1>
-            {/* Menu Admin mécanique (inline, s'étend à droite) */}
-            <div ref={adminMenuRef} className="flex items-center gap-0 overflow-visible">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!isAdminMenuOpen) {
-                    setIsAdminMenuOpen(true);
-                    haptic.light();
-                    sounds.playSwitch();
-                  }
-                }}
-                className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all touch-manipulation shrink-0"
-                title={isManageMode ? "Verrouiller" : "Déverrouiller"}
-              >
-                {isManageMode ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-              </button>
-              <div
-                className={`overflow-hidden transition-all duration-300 ease-out flex items-center ${
-                  isAdminMenuOpen ? "max-w-[200px] ml-1" : "max-w-0"
-                }`}
-              >
-                <div
-                  className="flex items-center gap-1 pl-1 border border-white/10 rounded-r-full bg-zinc-900/90 border-l-0 py-0.5 pr-1 w-[200px] min-w-[200px]"
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
+        <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-md border-b border-white/5">
+          {/* Mobile: 2 lignes */}
+          <div className="md:hidden">
+            {/* Ligne 1 - Top Bar */}
+            <div className="relative h-14 flex justify-between items-center px-4">
+              {!isShelfSearchExpanded ? (
+                <>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-white font-bold text-lg tracking-tight">KISSA</h1>
+                    <div ref={adminMenuRef} className="flex items-center gap-0 overflow-visible">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isAdminMenuOpen) {
+                            setIsAdminMenuOpen(true);
+                            haptic.light();
+                            sounds.playSwitch();
+                          }
+                        }}
+                        className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all touch-manipulation shrink-0"
+                        title={isManageMode ? "Verrouiller" : "Déverrouiller"}
+                      >
+                        {isManageMode ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                      </button>
+                      {isAdminMenuOpen && (
+                        <div
+                          className="flex items-center gap-1 pl-1 border border-white/10 rounded-r-full bg-zinc-900/90 border-l-0 py-0.5 pr-1 ml-1"
+                          onMouseDown={(e) => e.stopPropagation()}
+                        >
+                          <button onClick={() => { setIsSelectionMode((prev) => !prev); if (isSelectionMode) setSelectedAlbumIds(new Set()); haptic.light(); }} className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors touch-manipulation ${isSelectionMode ? "bg-amber-500/30 text-amber-400" : "text-neutral-400 hover:bg-white/10 hover:text-white"}`}><CheckSquare className="w-4 h-4 shrink-0" /></button>
+                          <button onClick={() => { setIsManageMode((prev) => !prev); haptic.light(); }} className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors touch-manipulation"><Edit3 className="w-4 h-4 shrink-0" /></button>
+                          <button onClick={async () => await handleBatchDelete()} disabled={selectedAlbumIds.size === 0} className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation"><Trash2 className="w-4 h-4 shrink-0" /></button>
+                          <button onClick={() => { closeAdminMenu(); haptic.light(); sounds.playSwitch(); }} className="flex items-center justify-center w-7 h-7 rounded-full text-neutral-500 hover:bg-white/10 hover:text-white transition-colors touch-manipulation ml-0.5"><X className="w-3.5 h-3.5" /></button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setIsShelfSearchExpanded(true); haptic.light(); sounds?.playSwitch(); }}
+                      aria-label="Rechercher"
+                      className="p-2 rounded-full text-zinc-400 hover:text-white transition-colors touch-manipulation"
+                    >
+                      <Search className="w-5 h-5" />
+                    </button>
+                    <div ref={mobileMenuRef} className="relative">
+                      <button
+                        onClick={() => { setIsMobileMenuOpen((prev) => !prev); haptic.light(); sounds?.playSwitch(); }}
+                        aria-label="Options d'affichage"
+                        className={`p-2 rounded-full transition-colors touch-manipulation ${isMobileMenuOpen ? "text-[#FFB347] bg-white/5" : "text-zinc-400 hover:text-white"}`}
+                      >
+                        <SlidersHorizontal className="w-5 h-5" />
+                      </button>
+                      {isMobileMenuOpen && (
+                        <div className="absolute right-0 top-full mt-1 w-64 bg-zinc-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl overflow-hidden z-50">
+                          <FilterBar
+                            slot="viewOptionsPanel"
+                            availableGenres={availableGenres}
+                            selectedGenre={selectedGenre}
+                            onGenreChange={setSelectedGenre}
+                            selectedMoods={selectedMoods}
+                            onMoodChange={setSelectedMoods}
+                            showFavoritesOnly={showFavoritesOnly}
+                            onFavoritesChange={setShowFavoritesOnly}
+                            gridDensity={gridDensity}
+                            onGridDensityChange={setGridDensity}
+                            searchQuery={searchQuery}
+                            onSearchChange={setSearchQuery}
+                            sortOption={sortOption}
+                            onSortOptionChange={setSortOption}
+                            sortOrder={sortOrder}
+                            onSortOrderChange={setSortOrder}
+                            sounds={sounds}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="absolute inset-0 flex items-center gap-2 px-4 bg-black/80 backdrop-blur-md">
+                  <Search className="w-5 h-5 text-zinc-500 shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Artist, Title, Cat. No..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    autoFocus
+                    className="flex-1 min-w-0 bg-transparent text-white text-base placeholder:text-zinc-500 focus:outline-none"
+                  />
                   <button
-                    onClick={() => {
-                      setIsSelectionMode((prev) => !prev);
-                      if (isSelectionMode) setSelectedAlbumIds(new Set());
-                      haptic.light();
-                    }}
-                    className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors touch-manipulation ${isSelectionMode ? "bg-amber-500/30 text-amber-400" : "text-neutral-400 hover:bg-white/10 hover:text-white"}`}
-                    title="Sélection"
+                    onClick={() => { setIsShelfSearchExpanded(false); haptic.light(); }}
+                    className="text-[#FFB347] text-sm font-medium shrink-0 touch-manipulation"
                   >
-                    <CheckSquare className="w-4 h-4 shrink-0" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsManageMode((prev) => !prev);
-                      haptic.light();
-                    }}
-                    className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors touch-manipulation"
-                    title="Éditer"
-                  >
-                    <Edit3 className="w-4 h-4 shrink-0" />
-                  </button>
-                  <button
-                    onClick={async () => await handleBatchDelete()}
-                    disabled={selectedAlbumIds.size === 0}
-                    className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation"
-                    title="Supprimer les albums sélectionnés"
-                  >
-                    <Trash2 className="w-4 h-4 shrink-0" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      closeAdminMenu();
-                      haptic.light();
-                      sounds.playSwitch();
-                    }}
-                    className="flex items-center justify-center w-7 h-7 rounded-full text-neutral-500 hover:bg-white/10 hover:text-white transition-colors touch-manipulation ml-0.5"
-                    title="Fermer"
-                  >
-                    <X className="w-3.5 h-3.5" />
+                    Cancel
                   </button>
                 </div>
-              </div>
+              )}
+            </div>
+            {/* Ligne 2 - Navigation (moods + genres) */}
+            <div className="h-12 border-b border-white/5 flex items-center">
+              <FilterBar
+                slot="headerMobileNav"
+                availableGenres={availableGenres}
+                selectedGenre={selectedGenre}
+                onGenreChange={setSelectedGenre}
+                selectedMoods={selectedMoods}
+                onMoodChange={setSelectedMoods}
+                showFavoritesOnly={showFavoritesOnly}
+                onFavoritesChange={setShowFavoritesOnly}
+                gridDensity={gridDensity}
+                onGridDensityChange={setGridDensity}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                sortOption={sortOption}
+                onSortOptionChange={setSortOption}
+                sortOrder={sortOrder}
+                onSortOrderChange={setSortOrder}
+                sounds={sounds}
+              />
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="bg-zinc-800 text-zinc-300 border border-zinc-700 font-mono text-xs px-2 py-1 rounded-sm">{filteredAlbums.length} LP</span>
+          {/* Desktop: Layout Studio */}
+          <div className="hidden md:block">
+            <div className="flex items-center justify-between gap-4 px-6 py-3 border-b border-white/5">
+              <div className="flex items-center gap-6 min-w-0">
+                <h1 className="text-white font-bold text-lg tracking-tight shrink-0">KISSA</h1>
+                <div ref={adminMenuRef} className="flex items-center gap-0 overflow-visible">
+                  <button onClick={(e) => { e.stopPropagation(); if (!isAdminMenuOpen) { setIsAdminMenuOpen(true); haptic.light(); sounds.playSwitch(); } }} className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all touch-manipulation shrink-0" title={isManageMode ? "Verrouiller" : "Déverrouiller"}>
+                    {isManageMode ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                  </button>
+                  {isAdminMenuOpen && (
+                    <div className="flex items-center gap-1 pl-1 border border-white/10 rounded-r-full bg-zinc-900/90 border-l-0 py-0.5 pr-1 ml-1" onMouseDown={(e) => e.stopPropagation()}>
+                      <button onClick={() => { setIsSelectionMode((prev) => !prev); if (isSelectionMode) setSelectedAlbumIds(new Set()); haptic.light(); }} className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors touch-manipulation ${isSelectionMode ? "bg-amber-500/30 text-amber-400" : "text-neutral-400 hover:bg-white/10 hover:text-white"}`}><CheckSquare className="w-4 h-4 shrink-0" /></button>
+                      <button onClick={() => { setIsManageMode((prev) => !prev); haptic.light(); }} className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors touch-manipulation"><Edit3 className="w-4 h-4 shrink-0" /></button>
+                      <button onClick={async () => await handleBatchDelete()} disabled={selectedAlbumIds.size === 0} className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation"><Trash2 className="w-4 h-4 shrink-0" /></button>
+                      <button onClick={() => { closeAdminMenu(); haptic.light(); sounds.playSwitch(); }} className="flex items-center justify-center w-7 h-7 rounded-full text-neutral-500 hover:bg-white/10 hover:text-white transition-colors touch-manipulation ml-0.5"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                  )}
+                </div>
+                <div className="relative shrink-0 w-48 group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-500 group-focus-within:text-white" />
+                  <input
+                    type="text"
+                    placeholder="Artist, Title, Cat. No..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-zinc-900/50 border border-zinc-800 rounded-full py-1.5 pl-9 pr-4 text-xs text-zinc-500 focus:outline-none focus:border-[#FFB347] focus:bg-zinc-900 caret-[#FFB347] transition-all placeholder:text-zinc-500"
+                  />
+                </div>
+                <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide">
+                  <FilterBar slot="genres" availableGenres={availableGenres} selectedGenre={selectedGenre} onGenreChange={setSelectedGenre} selectedMoods={selectedMoods} onMoodChange={setSelectedMoods} showFavoritesOnly={showFavoritesOnly} onFavoritesChange={setShowFavoritesOnly} gridDensity={gridDensity} onGridDensityChange={setGridDensity} searchQuery={searchQuery} onSearchChange={setSearchQuery} sortOption={sortOption} onSortOptionChange={setSortOption} sortOrder={sortOrder} onSortOrderChange={setSortOrder} sounds={sounds} />
+                </div>
+              </div>
+              <span className="bg-zinc-800 text-zinc-300 border border-zinc-700 font-mono text-xs px-2 py-1 rounded-sm shrink-0">{filteredAlbums.length} LP</span>
+            </div>
+            <div className="flex items-center gap-4 px-6 py-2 min-w-0">
+              <FilterBar slot="moods" availableGenres={availableGenres} selectedGenre={selectedGenre} onGenreChange={setSelectedGenre} selectedMoods={selectedMoods} onMoodChange={setSelectedMoods} showFavoritesOnly={showFavoritesOnly} onFavoritesChange={setShowFavoritesOnly} gridDensity={gridDensity} onGridDensityChange={setGridDensity} searchQuery={searchQuery} onSearchChange={setSearchQuery} sortOption={sortOption} onSortOptionChange={setSortOption} sortOrder={sortOrder} onSortOrderChange={setSortOrder} sounds={sounds} />
+              <FilterBar slot="toolbar" availableGenres={availableGenres} selectedGenre={selectedGenre} onGenreChange={setSelectedGenre} selectedMoods={selectedMoods} onMoodChange={setSelectedMoods} showFavoritesOnly={showFavoritesOnly} onFavoritesChange={setShowFavoritesOnly} gridDensity={gridDensity} onGridDensityChange={setGridDensity} searchQuery={searchQuery} onSearchChange={setSearchQuery} sortOption={sortOption} onSortOptionChange={setSortOption} sortOrder={sortOrder} onSortOrderChange={setSortOrder} sounds={sounds} />
+            </div>
           </div>
         </header>
       )}
 
-
-
       {/* VUE SHELF */}
       {currentView === "SHELF" && (
         <>
-          {/* FILTRES GENRES ET MOODS */}
-          <FilterBar
-            slot="all"
-            availableGenres={availableGenres}
-            selectedGenre={selectedGenre}
-            onGenreChange={(genre) => {
-              setSelectedGenre(genre);
-            }}
-            selectedMoods={selectedMoods}
-            onMoodChange={(moods) => {
-              setSelectedMoods(moods);
-            }}
-            showFavoritesOnly={showFavoritesOnly}
-            onFavoritesChange={setShowFavoritesOnly}
-            gridDensity={gridDensity}
-            onGridDensityChange={setGridDensity}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            sortOption={sortOption}
-            onSortOptionChange={setSortOption}
-            sortOrder={sortOrder}
-            onSortOrderChange={setSortOrder}
-            sounds={sounds}
-          />
-
           {/* GRILLE D'ALBUMS */}
-          <div className="px-6 mt-4 transition-all duration-300 max-w-full">
+          <div className="px-4 md:px-6 pt-4 transition-all duration-300 max-w-full">
             {isLoadingLibrary ? (
               <div
                 className={`grid transition-all duration-300 ${
@@ -1217,8 +1291,8 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
               </div>
             ) : (
               sectionKeys.map((sectionKey) => (
-                <section key={sectionKey} className="scroll-mt-32">
-                  <header className="sticky top-[140px] z-30 text-2xl font-bold text-white/90 bg-zinc-950/90 backdrop-blur-xl py-4 px-2 border-b border-white/5 mb-4 mt-8 flex items-center">
+                <section key={sectionKey} className="scroll-mt-[104px] md:scroll-mt-32">
+                  <header className="sticky top-[104px] md:top-32 z-30 text-lg md:text-2xl font-bold text-white/90 bg-zinc-950/90 backdrop-blur-xl py-4 px-2 border-b border-white/5 mb-4 mt-8 flex items-center">
                     <span>{sectionKey}</span>
                     <span className="text-sm font-normal text-white/40 ml-4">
                       {groupedAlbums[sectionKey].length} album{groupedAlbums[sectionKey].length !== 1 ? "s" : ""}

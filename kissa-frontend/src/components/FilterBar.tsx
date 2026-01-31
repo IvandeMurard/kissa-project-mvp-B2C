@@ -9,7 +9,7 @@ export type GridDensity = "large" | "medium" | "small";
 
 export type SortCriteria = "recent" | "artist" | "year" | "location" | "color";
 
-export type FilterBarSlot = "genres" | "search" | "moods" | "toolbar" | "all";
+export type FilterBarSlot = "genres" | "search" | "moods" | "toolbar" | "all" | "headerMobileNav" | "viewOptionsPanel";
 
 interface FilterBarProps {
   slot: FilterBarSlot;
@@ -270,6 +270,156 @@ export function FilterBar({
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (slot === "headerMobileNav") {
+    return (
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide mask-linear min-w-0 h-full px-4">
+        {moodOptions.map((mood) => {
+          const isSelected = selectedMoods.includes(mood.color);
+          return (
+            <button
+              key={mood.color}
+              onClick={() => {
+                sounds?.playSwitch();
+                handleMoodClick(mood.color);
+              }}
+              className="shrink-0 cursor-pointer p-1"
+            >
+              <div
+                className={`w-4 h-4 rounded-full transition-all duration-200 ${
+                  isSelected
+                    ? "opacity-100 ring-2 ring-white ring-offset-2 ring-offset-zinc-950"
+                    : "opacity-60 hover:opacity-100"
+                }`}
+                style={{
+                  backgroundColor: mood.color,
+                  border: mood.color === "#171717" ? "1px solid white" : "none",
+                }}
+              />
+            </button>
+          );
+        })}
+        <div className="w-px h-4 bg-white/20 shrink-0" aria-hidden />
+        <button
+          onClick={() => {
+            onGenreChange(null);
+            onFavoritesChange(false);
+            sounds?.playSwitch();
+          }}
+          className={`amp-label text-sm font-semibold px-3 py-1.5 rounded-sm transition-all shrink-0 ${
+            !selectedGenre && selectedMoods.length === 0 && !showFavoritesOnly
+              ? "amp-button-active font-bold"
+              : "text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200"
+          }`}
+        >
+          ALL
+        </button>
+        <button
+          onClick={() => {
+            sounds?.playSwitch();
+            onFavoritesChange(!showFavoritesOnly);
+          }}
+          className={`flex items-center gap-1.5 amp-label text-sm font-semibold px-3 py-1.5 rounded-sm transition-all shrink-0 ${
+            showFavoritesOnly
+              ? "amp-button-active font-bold"
+              : "text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200"
+          }`}
+        >
+          <Heart className={`w-3.5 h-3.5 ${showFavoritesOnly ? "fill-current" : "fill-none"}`} />
+          <span>FAV</span>
+        </button>
+        {selectedGenre && (
+          <button
+            onClick={() => {
+              sounds?.playSwitch();
+              onGenreChange(null);
+            }}
+            className="amp-label text-sm font-semibold uppercase tracking-wider px-3 py-1.5 rounded-sm shrink-0 amp-button-active font-bold flex items-center gap-1.5"
+          >
+            {selectedGenre}
+            <span className="text-xs">×</span>
+          </button>
+        )}
+        {availableGenres.map((g) => (
+          <button
+            key={g}
+            onClick={() => {
+              sounds?.playSwitch();
+              onGenreChange(selectedGenre === g ? null : g);
+            }}
+            className={`amp-label text-sm font-semibold uppercase tracking-wider px-3 py-1.5 rounded-sm shrink-0 transition-all ${
+              selectedGenre === g
+                ? "amp-button-active font-bold"
+                : "text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200"
+            }`}
+          >
+            {g}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  if (slot === "viewOptionsPanel") {
+    return (
+      <div className="flex flex-col gap-4 p-4">
+        <div>
+          <label className="amp-label text-zinc-400 block mb-2">Tri</label>
+          <select
+            value={sortOption}
+            onChange={(e) => {
+              sounds?.playSwitch();
+              onSortOptionChange(e.target.value as SortCriteria);
+            }}
+            className="w-full bg-zinc-800/50 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20"
+          >
+            <option value="recent">Recent</option>
+            <option value="artist">Artist</option>
+            <option value="year">Year</option>
+            <option value="location">Shelf</option>
+            <option value="color">Color</option>
+          </select>
+        </div>
+        <div>
+          <label className="amp-label text-zinc-400 block mb-2">Ordre</label>
+          <button
+            type="button"
+            onClick={() => {
+              sounds?.playSwitch();
+              onSortOrderChange(sortOrder === "asc" ? "desc" : "asc");
+            }}
+            className="flex items-center gap-2 w-full px-3 py-2 rounded border border-white/10 hover:border-zinc-500 text-sm text-white transition-colors"
+          >
+            {sortOrder === "asc" ? <ArrowUpNarrowWide className="w-4 h-4" /> : <ArrowDownNarrowWide className="w-4 h-4" />}
+            {sortOrder === "asc" ? "A → Z" : "Z → A"}
+          </button>
+        </div>
+        <div>
+          <label className="amp-label text-zinc-400 block mb-2">Densité</label>
+          <div className="flex gap-2" role="group" aria-label="Densité de grille">
+            {DENSITY_PRESETS.map(({ density, icon: Icon, label }) => (
+              <button
+                key={density}
+                type="button"
+                onClick={() => {
+                  sounds?.playSwitch();
+                  onGridDensityChange(density);
+                }}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded border transition-all ${
+                  gridDensity === density
+                    ? "amp-button-active text-white border-[#FFB347]"
+                    : "border-white/10 hover:border-zinc-500 text-zinc-400"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="text-sm">{label}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
