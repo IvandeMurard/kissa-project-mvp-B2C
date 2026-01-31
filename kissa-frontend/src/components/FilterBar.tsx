@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { LayoutGrid, Square, Grid3X3, Heart, Search, ArrowUpNarrowWide, ArrowDownNarrowWide } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { LayoutGrid, Square, Grid3X3, Heart, Search, ArrowUpNarrowWide, ArrowDownNarrowWide, ChevronDown } from "lucide-react";
 import { useKissaSound } from "@/hooks/useKissaSound";
 import { useMoodContext } from "@/contexts/MoodContext";
 
@@ -60,6 +60,20 @@ export function FilterBar({
   const [hoveredMood, setHoveredMood] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const [searchExpanded, setSearchExpanded] = useState(false);
+  const [genresOpen, setGenresOpen] = useState(false);
+  const [vibesOpen, setVibesOpen] = useState(false);
+  const genresRef = useRef<HTMLDivElement>(null);
+  const vibesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (slot !== "headerMobileNav") return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (genresRef.current && !genresRef.current.contains(e.target as Node)) setGenresOpen(false);
+      if (vibesRef.current && !vibesRef.current.contains(e.target as Node)) setVibesOpen(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [slot]);
 
   const handleMoodClick = (color: string) => {
     if (selectedMoods.includes(color)) {
@@ -277,90 +291,126 @@ export function FilterBar({
   }
 
   if (slot === "headerMobileNav") {
+    const pillBase = "amp-label text-sm font-semibold px-3 py-1.5 rounded-full border transition-all duration-200 shrink-0 flex items-center gap-1.5";
+    const pillInactive = "text-zinc-500 border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200";
+    const pillActive = "amp-button-active font-bold border-transparent";
+
     return (
-      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide mask-linear min-w-0 h-full px-4">
-        {moodOptions.map((mood) => {
-          const isSelected = selectedMoods.includes(mood.color);
-          return (
-            <button
-              key={mood.color}
-              onClick={() => {
-                sounds?.playSwitch();
-                handleMoodClick(mood.color);
-              }}
-              className="shrink-0 cursor-pointer p-1"
-            >
-              <div
-                className={`w-4 h-4 rounded-full transition-all duration-200 ${
-                  isSelected
-                    ? "opacity-100 ring-2 ring-white ring-offset-2 ring-offset-zinc-950"
-                    : "opacity-60 hover:opacity-100"
-                }`}
-                style={{
-                  backgroundColor: mood.color,
-                  border: mood.color === "#171717" ? "1px solid white" : "none",
+      <div className="flex items-center gap-2 min-w-0 h-full px-4">
+        {/* Genres ▾ */}
+        <div ref={genresRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setGenresOpen((o) => !o);
+              setVibesOpen(false);
+              sounds?.playSwitch();
+            }}
+            aria-expanded={genresOpen}
+            aria-haspopup="true"
+            className={`${pillBase} ${selectedGenre ? pillActive : pillInactive}`}
+          >
+            <span className="truncate max-w-[100px]">{selectedGenre ?? "Genres"}</span>
+            <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+          </button>
+          {genresOpen && (
+            <div className="absolute left-0 top-full mt-1 z-50 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl overflow-hidden min-w-[120px] max-h-[200px] overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  onGenreChange(null);
+                  setGenresOpen(false);
+                  sounds?.playSwitch();
                 }}
-              />
-            </button>
-          );
-        })}
-        <div className="w-px h-4 bg-white/20 shrink-0" aria-hidden />
+                className={`w-full text-left px-3 py-2 text-sm transition-colors ${!selectedGenre ? "bg-amber-500/20 text-amber-400 font-medium" : "text-zinc-300 hover:bg-zinc-800"}`}
+              >
+                Tous
+              </button>
+              {availableGenres.map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => {
+                    onGenreChange(g);
+                    setGenresOpen(false);
+                    sounds?.playSwitch();
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm transition-colors uppercase tracking-wider ${selectedGenre === g ? "bg-amber-500/20 text-amber-400 font-medium" : "text-zinc-300 hover:bg-zinc-800"}`}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Vibes ▾ */}
+        <div ref={vibesRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setVibesOpen((o) => !o);
+              setGenresOpen(false);
+              sounds?.playSwitch();
+            }}
+            aria-expanded={vibesOpen}
+            aria-haspopup="true"
+            className={`${pillBase} ${selectedMoods.length > 0 ? pillActive : pillInactive}`}
+          >
+            <span>Vibes</span>
+            {selectedMoods.length > 0 && (
+              <span className="rounded-full bg-amber-500 w-1.5 h-1.5 shrink-0" aria-hidden />
+            )}
+            <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+          </button>
+          {vibesOpen && (
+            <div className="absolute left-0 top-full mt-1 z-50 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl p-2">
+              <div className="flex flex-wrap gap-2">
+                {moodOptions.map((mood) => {
+                  const isSelected = selectedMoods.includes(mood.color);
+                  return (
+                    <button
+                      key={mood.color}
+                      type="button"
+                      onClick={() => {
+                        sounds?.playSwitch();
+                        handleMoodClick(mood.color);
+                      }}
+                      title={mood.label}
+                      className="shrink-0 cursor-pointer p-0.5"
+                    >
+                      <div
+                        className={`w-6 h-6 rounded-full transition-all duration-200 ${
+                          isSelected
+                            ? "opacity-100 ring-2 ring-white ring-offset-2 ring-offset-zinc-900"
+                            : "opacity-70 hover:opacity-100 hover:scale-110"
+                        }`}
+                        style={{
+                          backgroundColor: mood.color,
+                          border: mood.color === "#171717" ? "1px solid white" : "none",
+                        }}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Favorites ❤️ */}
         <button
-          onClick={() => {
-            onGenreChange(null);
-            onFavoritesChange(false);
-            sounds?.playSwitch();
-          }}
-          className={`amp-label text-sm font-semibold px-3 py-1.5 rounded-sm transition-all shrink-0 ${
-            !selectedGenre && selectedMoods.length === 0 && !showFavoritesOnly
-              ? "amp-button-active font-bold"
-              : "text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200"
-          }`}
-        >
-          ALL
-        </button>
-        <button
+          type="button"
           onClick={() => {
             sounds?.playSwitch();
             onFavoritesChange(!showFavoritesOnly);
           }}
-          className={`flex items-center gap-1.5 amp-label text-sm font-semibold px-3 py-1.5 rounded-sm transition-all shrink-0 ${
-            showFavoritesOnly
-              ? "amp-button-active font-bold"
-              : "text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200"
-          }`}
+          className={`${pillBase} ${showFavoritesOnly ? "bg-white text-black border-white hover:bg-zinc-200 border-zinc-200" : pillInactive}`}
+          title="Favoris"
         >
           <Heart className={`w-3.5 h-3.5 ${showFavoritesOnly ? "fill-current" : "fill-none"}`} />
-          <span>FAV</span>
+          <span>Favorites</span>
         </button>
-        {selectedGenre && (
-          <button
-            onClick={() => {
-              sounds?.playSwitch();
-              onGenreChange(null);
-            }}
-            className="amp-label text-sm font-semibold uppercase tracking-wider px-3 py-1.5 rounded-sm shrink-0 amp-button-active font-bold flex items-center gap-1.5"
-          >
-            {selectedGenre}
-            <span className="text-xs">×</span>
-          </button>
-        )}
-        {availableGenres.map((g) => (
-          <button
-            key={g}
-            onClick={() => {
-              sounds?.playSwitch();
-              onGenreChange(selectedGenre === g ? null : g);
-            }}
-            className={`amp-label text-sm font-semibold uppercase tracking-wider px-3 py-1.5 rounded-sm shrink-0 transition-all ${
-              selectedGenre === g
-                ? "amp-button-active font-bold"
-                : "text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200"
-            }`}
-          >
-            {g}
-          </button>
-        ))}
       </div>
     );
   }
