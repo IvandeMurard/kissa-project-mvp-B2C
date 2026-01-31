@@ -252,7 +252,7 @@ export function FilterBar({
           <option value="recent">Recent</option>
           <option value="artist">Artist</option>
           <option value="year">Year</option>
-          <option value="location">Location</option>
+          <option value="location">Shelf</option>
           <option value="color">Color</option>
         </select>
         <button

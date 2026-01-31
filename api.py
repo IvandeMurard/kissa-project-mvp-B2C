@@ -219,6 +219,37 @@ def health():
     """État des services (ex. openai_configured pour Generate Story)."""
     return {"openai_configured": kissa.openai_client is not None}
 
+
+@app.get("/debug/recalc-colors")
+def recalc_colors():
+    """
+    Recalcule dominant_color et dominant_hue pour les albums (ceux sans couleur ou tous).
+    Télécharge cover_image, extrait via colorgram, met à jour Supabase.
+    Retourne le nombre d'albums mis à jour.
+    """
+    try:
+        response = supabase.table("albums").select("id, cover_image").execute()
+        rows = response.data or []
+        updated = 0
+        for row in rows:
+            album_id = row.get("id")
+            cover_image = row.get("cover_image")
+            if not album_id or not cover_image or not str(cover_image).strip():
+                continue
+            hex_color, hue_float = _extract_dominant_color(cover_image, is_url=True)
+            if hex_color is None:
+                continue
+            payload = {"dominant_color": hex_color}
+            if hue_float is not None:
+                payload["dominant_hue"] = hue_float
+            supabase.table("albums").update(payload).eq("id", album_id).execute()
+            updated += 1
+        return {"updated": updated}
+    except Exception as e:
+        print(f"Recalc colors failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/library")
 def get_library():
     try:

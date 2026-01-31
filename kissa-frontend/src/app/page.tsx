@@ -1214,6 +1214,107 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                   </p>
                 </div>
               </div>
+            ) : sortOption === "color" ? (
+              <div
+                className={`grid transition-all duration-300 max-w-full ${
+                  gridDensity === "large" ? "grid-cols-2 md:grid-cols-4 gap-4 md:gap-6" :
+                  gridDensity === "medium" ? "grid-cols-3 md:grid-cols-6 gap-3 md:gap-6" :
+                  "grid-cols-4 md:grid-cols-8 gap-2 md:gap-4"
+                }`}
+              >
+                {colorSortAlbums.map((album) => (
+                <div
+                  key={album.id}
+                  onClick={isSelectionMode ? (e) => { e.stopPropagation(); handleAlbumClick(album); } : undefined}
+                  className={`group relative aspect-square bg-[#111] overflow-hidden border animate-in fade-in duration-300 transition-all ${
+                    isSelectionMode ? "cursor-pointer" : "cursor-default"
+                  } ${
+                    selectedAlbumIds.has(album.id) ? "border-4 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)] ring-4 ring-amber-500/30" : "border border-white/5"
+                  }`}
+                >
+                  <img 
+                    src={album.display.cover_image || "/placeholder.png"} 
+                    alt={album.display.title}
+                    onClick={() => {
+                      if (!isSelectionMode) handleAlbumClick(album);
+                    }}
+                    className={`w-full h-full object-cover transition-all duration-300 ease-out touch-manipulation ${
+                      gridDensity !== "small" ? "md:relative md:z-10 shadow-md md:group-hover:-translate-y-4 md:group-hover:scale-105 md:group-hover:shadow-2xl" : ""
+                    } ${
+                      isSelectionMode && !selectedAlbumIds.has(album.id) ? "scale-90 opacity-60 grayscale" : ""
+                    } ${
+                      isSelectionMode && selectedAlbumIds.has(album.id) ? "scale-100 opacity-100 grayscale-0" : ""
+                    } ${!isSelectionMode ? "cursor-pointer md:cursor-default" : "cursor-pointer"} ${currentTrack?.id === album.id ? "opacity-50 grayscale" : ""}`}
+                  />
+                  {/* Mood Colors Gommettes */}
+                  {album.mood_colors && album.mood_colors.length > 0 && (
+                    <div className="absolute top-2 right-2 z-20 flex gap-1 flex-wrap max-w-[60%]">
+                      {album.mood_colors.map((color, idx) => (
+                        <div
+                          key={idx}
+                          className="w-3 h-3 md:w-4 md:h-4 rounded-full shadow-sm opacity-90"
+                          style={{
+                            backgroundColor: color,
+                            border: color === '#171717' ? '1px solid white' : 'none',
+                          }}
+                          title={moodOptions.find(c => c.color === color)?.label || ''}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {album.storage_location?.trim() && (
+                    <span
+                      className="absolute bottom-2 right-2 z-10 flex items-center gap-1 border border-zinc-800 rounded-sm px-1 text-[10px] text-zinc-500 font-mono"
+                      style={{ fontFamily: "var(--font-technical)" }}
+                    >
+                      <MapPin className="w-2.5 h-2.5 shrink-0" />
+                      {album.storage_location.trim()}
+                    </span>
+                  )}
+
+                  {gridDensity !== "small" && (
+                    <div className="absolute inset-0 bg-black/90 backdrop-blur-sm translate-y-full group-hover:translate-y-0 md:translate-y-0 md:z-0 transition-opacity duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] md:opacity-0 md:group-hover:opacity-100 overflow-hidden">
+                      {/* Boutons d'action - affichés uniquement si isManageMode est true */}
+                      {isManageMode && (
+                        <div className="absolute top-3 right-3 z-10 flex gap-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAlbumClick(album);
+                            }} 
+                            className="text-neutral-700 hover:text-blue-400 transition-colors bg-black/50 p-1 rounded"
+                            title="Éditer"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </button>
+                          <button 
+                            onClick={(e) => handleDelete(album.id, e)} 
+                            className="text-neutral-700 hover:text-red-500 transition-colors bg-black/50 p-1 rounded touch-manipulation" 
+                            title="DISCARD"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                      <AlbumDetailView
+                        album={album}
+                        onUpdate={handleUpdateAlbum}
+                        onPlay={() => handlePlay(album)}
+                        showActions={false}
+                        compact={true}
+                        API_URL={API_URL}
+                      />
+                    </div>
+                  )}
+
+                  {currentTrack?.id === album.id && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-12 h-12 rounded-full border-2 border-white/20 animate-[spin_3s_linear_infinite] flex items-center justify-center"><div className="w-3 h-3 bg-red-500 rounded-full" /></div>
+                    </div>
+                  )}
+                </div>
+                ))}
+              </div>
             ) : (
               sectionKeys.map((sectionKey) => (
                 <section key={sectionKey} className="scroll-mt-32">
@@ -1234,7 +1335,9 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                 <div
                   key={album.id}
                   onClick={isSelectionMode ? (e) => { e.stopPropagation(); handleAlbumClick(album); } : undefined}
-                  className={`group relative aspect-square bg-[#111] overflow-hidden border animate-in fade-in duration-300 transition-all cursor-pointer ${
+                  className={`group relative aspect-square bg-[#111] overflow-hidden border animate-in fade-in duration-300 transition-all ${
+                    isSelectionMode ? "cursor-pointer" : "cursor-default"
+                  } ${
                     selectedAlbumIds.has(album.id) ? "border-4 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)] ring-4 ring-amber-500/30" : "border border-white/5"
                   }`}
                 >
