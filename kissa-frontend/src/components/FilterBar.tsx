@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SlidersHorizontal, X, LayoutGrid, Square, Maximize2 } from "lucide-react";
+import { SlidersHorizontal, X, LayoutGrid, Square, Maximize2, Heart } from "lucide-react";
 import { useKissaSound } from "@/hooks/useKissaSound";
 import { useMoodContext } from "@/contexts/MoodContext";
 
@@ -13,6 +13,8 @@ interface FilterBarProps {
   onGenreChange: (genre: string | null) => void;
   selectedMoods: string[];
   onMoodChange: (moods: string[]) => void;
+  showFavoritesOnly: boolean;
+  onFavoritesChange: (value: boolean) => void;
   gridDensity: GridDensity;
   onGridDensityChange: (density: GridDensity) => void;
   sounds?: ReturnType<typeof useKissaSound>;
@@ -30,6 +32,8 @@ export function FilterBar({
   onGenreChange,
   selectedMoods,
   onMoodChange,
+  showFavoritesOnly,
+  onFavoritesChange,
   gridDensity,
   onGridDensityChange,
   sounds,
@@ -64,15 +68,33 @@ export function FilterBar({
         <button
           onClick={() => {
             onGenreChange(null);
+            onFavoritesChange(false);
             sounds?.playSwitch();
           }}
           className={`amp-label text-sm font-semibold px-3 py-1.5 rounded-sm transition-all duration-300 ease-in-out shrink-0 ${
-            !selectedGenre && selectedMoods.length === 0
+            !selectedGenre && selectedMoods.length === 0 && !showFavoritesOnly
               ? 'amp-button-active font-bold'
               : 'text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'
           }`}
         >
           ALL
+        </button>
+
+        {/* Bouton Favoris */}
+        <button
+          onClick={() => {
+            sounds?.playSwitch();
+            onFavoritesChange(!showFavoritesOnly);
+          }}
+          className={`flex items-center gap-1.5 amp-label text-sm font-semibold px-3 py-1.5 rounded-sm transition-all duration-300 ease-in-out shrink-0 ${
+            showFavoritesOnly
+              ? 'amp-button-active font-bold'
+              : 'text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'
+          }`}
+          title="Favoris"
+        >
+          <Heart className={`w-3.5 h-3.5 ${showFavoritesOnly ? "fill-current" : "fill-none"}`} />
+          <span>FAV</span>
         </button>
 
         {/* Chips des filtres actifs - Genres */}
@@ -237,9 +259,10 @@ export function FilterBar({
                   onClick={() => {
                     sounds?.playSwitch();
                     onGenreChange(null);
+                    onFavoritesChange(false);
                   }}
                   className={`amp-label text-sm font-semibold py-2 px-3 rounded-sm transition-all duration-300 ease-in-out ${
-                    !selectedGenre
+                    !selectedGenre && !showFavoritesOnly
                       ? 'amp-button-active font-bold'
                       : 'text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'
                   }`}
@@ -270,19 +293,38 @@ export function FilterBar({
 
       {/* Desktop: Comportement actuel */}
       <div className="hidden md:flex max-w-full px-6 py-4 gap-2 items-center overflow-x-auto scrollbar-hide">
-        {/* Section Genres */}
+        {/* ALL + FAV + Section Genres */}
+        <button
+          onClick={() => {
+            onGenreChange(null);
+            onFavoritesChange(false);
+            sounds?.playSwitch();
+          }}
+          className={`amp-label text-sm font-semibold px-3 py-1 rounded-sm transition-all duration-300 ease-in-out shrink-0 ${
+            !selectedGenre && !showFavoritesOnly
+              ? 'amp-button-active font-bold'
+              : 'text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'
+          }`}
+        >
+          ALL
+        </button>
+        <button
+          onClick={() => {
+            sounds?.playSwitch();
+            onFavoritesChange(!showFavoritesOnly);
+          }}
+          className={`flex items-center gap-1.5 amp-label text-sm font-semibold px-3 py-1 rounded-sm transition-all duration-300 ease-in-out shrink-0 ${
+            showFavoritesOnly
+              ? 'amp-button-active font-bold'
+              : 'text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'
+          }`}
+          title="Favoris"
+        >
+          <Heart className={`w-3.5 h-3.5 ${showFavoritesOnly ? "fill-current" : "fill-none"}`} />
+          <span>FAV</span>
+        </button>
         {availableGenres.length > 0 && (
           <>
-            <button
-              onClick={() => onGenreChange(null)}
-              className={`amp-label text-sm font-semibold px-3 py-1 rounded-sm transition-all duration-300 ease-in-out shrink-0 ${
-                !selectedGenre
-                  ? 'amp-button-active font-bold'
-                  : 'text-zinc-500 border border-zinc-800 bg-transparent hover:border-zinc-500 hover:text-zinc-200'
-              }`}
-            >
-              ALL
-            </button>
             {availableGenres.map((g) => (
               <button
                 key={g}
@@ -303,9 +345,7 @@ export function FilterBar({
         )}
 
         {/* Séparateur vertical */}
-        {availableGenres.length > 0 && (
-          <div className="w-px h-6 bg-white/10 mx-2 shrink-0" />
-        )}
+        <div className="w-px h-6 bg-white/10 mx-2 shrink-0" />
 
         {/* Section Mood Colors */}
         <div className="flex items-center gap-2 shrink-0">

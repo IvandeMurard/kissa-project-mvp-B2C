@@ -476,14 +476,28 @@ async def discogs_import_batch(request: DiscogsImportBatchRequest):
     for album in request.albums:
         try:
             # 1. Existant par discogs_id (champs nécessaires pour upsert)
+            select_cols = "id, discogs_id, spotify_url, tracklist, label, year, genre, cover_image, dominant_color, dominant_hue"
             existing_res = (
                 supabase.table("albums")
-                .select("id, spotify_url, tracklist, label, year, genre, cover_image, dominant_color, dominant_hue")
+                .select(select_cols)
                 .eq("discogs_id", album.discogs_id)
                 .execute()
             )
             existing_row = existing_res.data[0] if existing_res.data and len(existing_res.data) > 0 else None
             existing_id = existing_row["id"] if existing_row else None
+
+            # 1b. Fallback : si rien par discogs_id, chercher par artist + title (import manuel antérieur)
+            if existing_row is None:
+                fallback_res = (
+                    supabase.table("albums")
+                    .select(select_cols)
+                    .eq("artist", album.artist)
+                    .eq("title", album.title)
+                    .execute()
+                )
+                if fallback_res.data and len(fallback_res.data) > 0:
+                    existing_row = fallback_res.data[0]
+                    existing_id = existing_row["id"]
 
             # 2. Spotify (priorité) : tracklist + year, label, genres
             spotify_url = None
@@ -535,6 +549,8 @@ async def discogs_import_batch(request: DiscogsImportBatchRequest):
             if existing_row:
                 # Upsert : ne mettre à jour que les champs vides (jamais écraser spotify_url renseigné)
                 payload = {}
+                if existing_row.get("discogs_id") is None and album.discogs_id:
+                    payload["discogs_id"] = album.discogs_id
                 if _is_empty(existing_row.get("spotify_url"), "str") and spotify_url:
                     payload["spotify_url"] = spotify_url
                 if _is_empty(existing_row.get("tracklist"), "list") and tracklist:
@@ -796,6 +812,38 @@ async def toggle_focus_track(album_id: str, track_index: int):
         raise he
     except Exception as e:
         print(f"❌ Erreur lors du toggle focus track : {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors du toggle : {str(e)}")
+
+@app.patch("/albums/{album_id}/favorite")
+async def toggle_favorite(album_id: str):
+    """
+    Toggle le statut favori (is_favorite) d'un album.
+    Inverse la valeur actuelle (coalesce false pour anciennes lignes).
+    """
+    try:
+        response = supabase.table("albums").select("id, is_favorite").eq("id", album_id).execute()
+
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=404, detail=f"Album avec l'ID {album_id} introuvable")
+
+        album = response.data[0]
+        current = album.get("is_favorite")
+        new_value = not (current is True)
+
+        update_response = supabase.table("albums").update(
+            {"is_favorite": new_value}
+        ).eq("id", album_id).execute()
+
+        if not update_response.data:
+            raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour")
+
+        print(f"✅ Favori togglé pour l'album {album_id}: is_favorite={new_value}")
+        return update_response.data[0]
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"❌ Erreur lors du toggle favori : {e}")
         raise HTTPException(status_code=500, detail=f"Erreur lors du toggle : {str(e)}")
 
 @app.post("/admin/refetch-tracks")

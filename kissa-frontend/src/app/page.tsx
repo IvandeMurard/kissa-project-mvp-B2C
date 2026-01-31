@@ -43,6 +43,8 @@ interface Album {
 
   personal_notes?: string | null;
 
+  is_favorite?: boolean;
+
 }
 
 
@@ -102,6 +104,7 @@ function formatAlbumRow(item: any): Album {
     dominant_color: item.dominant_color ?? null,
     dominant_hue: item.dominant_hue ?? null,
     personal_notes: item.personal_notes ?? null,
+    is_favorite: item.is_favorite ?? false,
   };
 }
 
@@ -251,6 +254,7 @@ export default function Home() {
 
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const [availableGenres, setAvailableGenres] = useState<string[]>([]);
 
@@ -807,6 +811,12 @@ export default function Home() {
       console.log(`🎨 Filtrage par moods [${selectedMoods.join(', ')}]: ${filtered.length} résultat(s)`);
     }
 
+    // Filtrage par favoris
+    if (showFavoritesOnly) {
+      filtered = filtered.filter((album) => album.is_favorite === true);
+      console.log(`❤️ Filtrage favoris: ${filtered.length} résultat(s)`);
+    }
+
     // Tri
     filtered.sort((a, b) => {
       switch (sortOption) {
@@ -841,7 +851,7 @@ export default function Home() {
 
     console.log(`✅ Albums filtrés: ${filtered.length} sur ${allAlbums.length} total`);
     setFilteredAlbums(filtered);
-  }, [allAlbums, searchQuery, selectedGenre, selectedMoods, sortOption]);
+  }, [allAlbums, searchQuery, selectedGenre, selectedMoods, showFavoritesOnly, sortOption]);
 
   useEffect(() => {
     if (!successToast) return;
@@ -1011,6 +1021,8 @@ export default function Home() {
             onMoodChange={(moods) => {
               setSelectedMoods(moods);
             }}
+            showFavoritesOnly={showFavoritesOnly}
+            onFavoritesChange={setShowFavoritesOnly}
             gridDensity={gridDensity}
             onGridDensityChange={setGridDensity}
             sounds={sounds}
@@ -1418,6 +1430,10 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                 compact={false}
                 activeTab={modalActiveTab}
                 onTabChange={(tab) => setModalActiveTab(tab)}
+                onArtistClick={(artist) => {
+                  setSelectedAlbum(null);
+                  setSearchQuery(artist);
+                }}
               />
             </div>
           </div>

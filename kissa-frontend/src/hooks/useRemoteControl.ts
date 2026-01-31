@@ -31,17 +31,27 @@ export const useRemoteControl = (
     const client = supabase;
 
     let channel: ReturnType<typeof client.channel> | null = null;
+    let cleaned = false;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
     try {
       channel = client.channel('kissa-room');
-      const channelRef = channel; // Référence locale pour le callback
+      const channelRef = channel;
 
-      // Timeout pour éviter que le channel reste ouvert indéfiniment
-      const timeoutId = setTimeout(() => {
-        if (channelRef) {
-          client.removeChannel(channelRef);
-        }
-      }, 5000); // 5 secondes max
+      const safeRemove = () => {
+        if (cleaned) return;
+        cleaned = true;
+        clearTimeout(timeoutId);
+        queueMicrotask(() => {
+          try {
+            if (channelRef) client.removeChannel(channelRef);
+          } catch (e) {
+            console.debug('Error removing channel:', e);
+          }
+        });
+      };
+
+      timeoutId = setTimeout(safeRemove, 5000);
 
       await channelRef.subscribe(async (status: ChannelStatus) => {
         if (status === 'SUBSCRIBED') {
@@ -54,22 +64,24 @@ export const useRemoteControl = (
           } catch (sendError) {
             console.debug('Error sending broadcast:', sendError);
           } finally {
-            clearTimeout(timeoutId);
-            if (channelRef) {
-              client.removeChannel(channelRef);
-            }
+            safeRemove();
           }
         } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
-          clearTimeout(timeoutId);
-          if (channelRef) {
-            client.removeChannel(channelRef);
-          }
+          safeRemove();
         }
       });
     } catch (error) {
       console.debug('Error broadcasting selection:', error);
-      if (channel) {
-        client.removeChannel(channel);
+      if (!cleaned && channel) {
+        cleaned = true;
+        if (typeof timeoutId !== 'undefined') clearTimeout(timeoutId);
+        queueMicrotask(() => {
+          try {
+            client.removeChannel(channel!);
+          } catch (e) {
+            console.debug('Error removing channel:', e);
+          }
+        });
       }
     }
   }, []);
@@ -82,12 +94,28 @@ export const useRemoteControl = (
     }
     const client = supabase;
     let channel: ReturnType<typeof client.channel> | null = null;
+    let cleaned = false;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
     try {
       channel = client.channel('kissa-room');
       const channelRef = channel;
-      const timeoutId = setTimeout(() => {
-        if (channelRef) client.removeChannel(channelRef);
-      }, 5000);
+
+      const safeRemove = () => {
+        if (cleaned) return;
+        cleaned = true;
+        clearTimeout(timeoutId);
+        queueMicrotask(() => {
+          try {
+            if (channelRef) client.removeChannel(channelRef);
+          } catch (e) {
+            console.debug('Error removing channel:', e);
+          }
+        });
+      };
+
+      timeoutId = setTimeout(safeRemove, 5000);
+
       await channelRef.subscribe(async (status: ChannelStatus) => {
         if (status === 'SUBSCRIBED') {
           try {
@@ -99,17 +127,25 @@ export const useRemoteControl = (
           } catch (sendError) {
             console.debug('Error sending album_updated:', sendError);
           } finally {
-            clearTimeout(timeoutId);
-            if (channelRef) client.removeChannel(channelRef);
+            safeRemove();
           }
         } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
-          clearTimeout(timeoutId);
-          if (channelRef) client.removeChannel(channelRef);
+          safeRemove();
         }
       });
     } catch (error) {
       console.debug('Error broadcasting album_updated:', error);
-      if (channel) client.removeChannel(channel);
+      if (!cleaned && channel) {
+        cleaned = true;
+        if (typeof timeoutId !== 'undefined') clearTimeout(timeoutId);
+        queueMicrotask(() => {
+          try {
+            client.removeChannel(channel!);
+          } catch (e) {
+            console.debug('Error removing channel:', e);
+          }
+        });
+      }
     }
   }, []);
 

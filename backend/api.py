@@ -313,3 +313,50 @@ async def add_vinyl_by_id(request: AddByIdRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/albums/{album_id}/toggle-track/{track_index}")
+def toggle_focus_track(album_id: str, track_index: int):
+    """Toggle le statut Focus Track d'une piste."""
+    try:
+        response = supabase.table("albums").select("id, focus_track_indices, tracklist").eq("id", album_id).execute()
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=404, detail=f"Album avec l'ID {album_id} introuvable")
+        album = response.data[0]
+        current_indices = album.get("focus_track_indices") or []
+        if track_index in current_indices:
+            updated_indices = [i for i in current_indices if i != track_index]
+        else:
+            updated_indices = sorted(current_indices + [track_index])
+        update_response = supabase.table("albums").update(
+            {"focus_track_indices": updated_indices}
+        ).eq("id", album_id).execute()
+        if not update_response.data:
+            raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour")
+        return update_response.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/albums/{album_id}/favorite")
+def toggle_favorite(album_id: str):
+    """Toggle le statut favori (is_favorite) d'un album."""
+    try:
+        response = supabase.table("albums").select("id, is_favorite").eq("id", album_id).execute()
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=404, detail=f"Album avec l'ID {album_id} introuvable")
+        album = response.data[0]
+        current = album.get("is_favorite")
+        new_value = not (current is True)
+        update_response = supabase.table("albums").update(
+            {"is_favorite": new_value}
+        ).eq("id", album_id).execute()
+        if not update_response.data:
+            raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour")
+        return update_response.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

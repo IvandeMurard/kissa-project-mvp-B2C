@@ -18,7 +18,7 @@ echo ========================================
 echo.
 
 REM Lancer le backend dans une nouvelle fenêtre
-start "Kissa Backend" cmd /k "cd /d %~dp0backend && call venv\Scripts\activate.bat && set PYTHONUNBUFFERED=1 && uvicorn api:app --reload --host 127.0.0.1 --port 8000"
+start "Kissa Backend" cmd /k "cd /d %~dp0 && call venv\Scripts\activate.bat && set PYTHONUNBUFFERED=1 && uvicorn api:app --reload --host 127.0.0.1 --port 8000"
 
 REM Attendre un peu avant de lancer le frontend
 timeout /t 3 /nobreak >nul

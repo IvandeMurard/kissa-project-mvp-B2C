@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Sparkles, ExternalLink, Trash2, Play, RefreshCw, Check } from "lucide-react";
+import { Loader2, Sparkles, ExternalLink, Trash2, Play, RefreshCw, Check, Heart } from "lucide-react";
 import { useHaptic } from "@/hooks/useHaptic";
 import { useMoodContext } from "@/contexts/MoodContext";
 
@@ -16,6 +16,7 @@ interface Album {
   focus_track_indices?: number[];
   mood_colors?: string[] | null;
   personal_notes?: string | null;
+  is_favorite?: boolean;
 }
 
 interface AlbumDetailViewProps {
@@ -32,6 +33,8 @@ interface AlbumDetailViewProps {
   onTabChange?: (tab: "tracklist" | "sleeve" | "story" | "vibe") => void;
   /** Quand fourni, l'onglet actif est contrôlé par le parent (ex. modale). */
   activeTab?: "tracklist" | "sleeve" | "story" | "vibe";
+  /** Quand fourni, le nom de l'artiste devient cliquable (ferme modale + filtre par artiste). */
+  onArtistClick?: (artist: string) => void;
 }
 
 export function AlbumDetailView({
@@ -47,6 +50,7 @@ export function AlbumDetailView({
   compact = false,
   onTabChange,
   activeTab: activeTabControlled,
+  onArtistClick,
 }: AlbumDetailViewProps) {
   const { moodOptions } = useMoodContext();
   const haptic = useHaptic();
@@ -55,6 +59,7 @@ export function AlbumDetailView({
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
   const [isSavingPurchaseData, setIsSavingPurchaseData] = useState(false);
   const [isTogglingTrack, setIsTogglingTrack] = useState(false);
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const [isRefetchingTracklist, setIsRefetchingTracklist] = useState(false);
   const [localAlbum, setLocalAlbum] = useState<Album>(initialAlbum);
   const [optimisticFocusIndices, setOptimisticFocusIndices] = useState<number[]>(
@@ -365,6 +370,40 @@ export function AlbumDetailView({
     }
   };
 
+  const handleToggleFavorite = async () => {
+    if (isTogglingFavorite) return;
+    const previousFavorite = localAlbum.is_favorite === true;
+    const nextFavorite = !previousFavorite;
+
+    setLocalAlbum((prev) => ({ ...prev, is_favorite: nextFavorite }));
+    (onUpdate ?? onUpdateAlbum)?.({ ...localAlbum, is_favorite: nextFavorite });
+    setIsTogglingFavorite(true);
+
+    try {
+      const response = await fetch(`${API_URL}/albums/${localAlbum.id}/favorite`, {
+        method: "PATCH",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Erreur ${response.status}`);
+      }
+
+      const updated = await response.json();
+      const serverFavorite = updated.is_favorite === true;
+      const finalAlbum = { ...localAlbum, is_favorite: serverFavorite };
+      setLocalAlbum(finalAlbum);
+      (onUpdate ?? onUpdateAlbum)?.(finalAlbum);
+    } catch (error) {
+      setLocalAlbum((prev) => ({ ...prev, is_favorite: previousFavorite }));
+      (onUpdate ?? onUpdateAlbum)?.({ ...localAlbum, is_favorite: previousFavorite });
+      showErrorToast("Erreur lors de la mise à jour. Veuillez réessayer.");
+      console.error("❌ Erreur lors du toggle favori:", error);
+    } finally {
+      setIsTogglingFavorite(false);
+    }
+  };
+
   // Fonction simple pour rendre le markdown avec lettrine
   const renderMarkdown = (text: string) => {
     // Remplacer **texte** par <strong> (en premier pour éviter les conflits)
@@ -424,6 +463,23 @@ export function AlbumDetailView({
 
   return (
     <div className="flex flex-col h-full relative overflow-hidden bg-zinc-950">
+      {/* Indicateur Saving/Saved - fixed en haut pour mobile */}
+      {(isSavingMoodColors || moodColorsJustSaved) && tab === "vibe" && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900/95 border border-white/10 text-xs text-zinc-400">
+          {isSavingMoodColors && (
+            <>
+              <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
+              <span>Saving...</span>
+            </>
+          )}
+          {!isSavingMoodColors && moodColorsJustSaved && (
+            <>
+              <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
+              <span className="text-green-500">Saved</span>
+            </>
+          )}
+        </div>
+      )}
       {/* Zone A : Contenu scrollable (Haut) */}
       <div className="flex-1 overflow-y-auto scrollbar-hide p-4 pb-20">
         {/* Header */}
@@ -439,12 +495,39 @@ export function AlbumDetailView({
               />
             </div>
           )}
-          <h3 className={`${headerSize} font-bold text-white leading-tight mb-1`}>
-            {localAlbum.display.title}
-          </h3>
-          <p className={`${artistSize} text-zinc-400`}>
-            {localAlbum.display.artist}
-          </p>
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h3 className={`${headerSize} font-bold text-white leading-tight flex-1 min-w-0`}>
+              {localAlbum.display.title}
+            </h3>
+            {showActions && (
+              <button
+                type="button"
+                onClick={handleToggleFavorite}
+                disabled={isTogglingFavorite}
+                className="shrink-0 p-1 -m-1 rounded transition-colors hover:bg-white/10 disabled:opacity-50"
+                aria-label={localAlbum.is_favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+              >
+                <Heart
+                  className={`w-5 h-5 transition-colors ${
+                    localAlbum.is_favorite ? "fill-red-500 text-red-500" : "fill-none text-zinc-500"
+                  }`}
+                />
+              </button>
+            )}
+          </div>
+          {onArtistClick ? (
+            <button
+              type="button"
+              onClick={() => onArtistClick(localAlbum.display.artist)}
+              className={`${artistSize} text-zinc-400 cursor-pointer hover:underline hover:text-amber-500 transition-colors text-left`}
+            >
+              {localAlbum.display.artist}
+            </button>
+          ) : (
+            <p className={`${artistSize} text-zinc-400`}>
+              {localAlbum.display.artist}
+            </p>
+          )}
         </div>
 
         {/* Tags */}
@@ -732,23 +815,6 @@ export function AlbumDetailView({
                   );
                 })}
               </div>
-              {/* Indicateur Saving / Saved à côté des gommettes */}
-              {(isSavingMoodColors || moodColorsJustSaved) && (
-                <div className="flex items-center gap-1.5 mt-3 text-xs text-zinc-400">
-                  {isSavingMoodColors && (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
-                      <span>Saving...</span>
-                    </>
-                  )}
-                  {!isSavingMoodColors && moodColorsJustSaved && (
-                    <>
-                      <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
-                      <span className="text-green-500">Saved</span>
-                    </>
-                  )}
-                </div>
-              )}
               {/* Tooltip avec position fixed pour VIBE */}
               {hoveredMoodVibe && tooltipPositionVibe && (
                 <div
