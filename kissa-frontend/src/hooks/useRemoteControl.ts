@@ -32,7 +32,7 @@ export const useRemoteControl = (
 
     let channel: ReturnType<typeof client.channel> | null = null;
     let cleaned = false;
-    let timeoutId: ReturnType<typeof setTimeout>;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined;
 
     try {
       channel = client.channel('kissa-room');
@@ -95,7 +95,7 @@ export const useRemoteControl = (
     const client = supabase;
     let channel: ReturnType<typeof client.channel> | null = null;
     let cleaned = false;
-    let timeoutId: ReturnType<typeof setTimeout>;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined;
 
     try {
       channel = client.channel('kissa-room');
