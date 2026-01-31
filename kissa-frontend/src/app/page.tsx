@@ -45,6 +45,8 @@ interface Album {
 
   is_favorite?: boolean;
 
+  created_at?: string | null;
+
 }
 
 
@@ -105,7 +107,97 @@ function formatAlbumRow(item: any): Album {
     dominant_hue: item.dominant_hue ?? null,
     personal_notes: item.personal_notes ?? null,
     is_favorite: item.is_favorite ?? false,
+    created_at: item.created_at ?? null,
   };
+}
+
+type SortCriteria = "recent" | "artist" | "year" | "location" | "color";
+
+function groupAlbums(
+  filteredAlbums: Album[],
+  sortCriteria: SortCriteria
+): Record<string, Album[]> {
+  if (filteredAlbums.length === 0) return {};
+
+  switch (sortCriteria) {
+    case "artist": {
+      const map: Record<string, Album[]> = {};
+      for (const album of filteredAlbums) {
+        const artist = (album.display.artist || "").trim();
+        const first = artist.charAt(0).toUpperCase();
+        const key = /[A-Z]/.test(first) ? first : "#";
+        if (!map[key]) map[key] = [];
+        map[key].push(album);
+      }
+      const keys = Object.keys(map).sort((a, b) => (a === "#" ? 1 : b === "#" ? -1 : a.localeCompare(b)));
+      const out: Record<string, Album[]> = {};
+      for (const k of keys) out[k] = map[k];
+      return out;
+    }
+    case "year": {
+      const byYear = filteredAlbums.length < 50;
+      const map: Record<string, Album[]> = {};
+      for (const album of filteredAlbums) {
+        const y = parseInt(album.details.year || "0", 10) || 0;
+        const key = byYear
+          ? (y ? String(y) : "Unknown")
+          : y >= 2000
+            ? `${Math.floor(y / 10) * 10}s`
+            : y >= 1900
+              ? `${String(Math.floor(y / 10) * 10).slice(2)}s`
+              : "Unknown";
+        if (!map[key]) map[key] = [];
+        map[key].push(album);
+      }
+      const keys = Object.keys(map).sort((a, b) => {
+        if (a === "Unknown" || b === "Unknown") return a === "Unknown" ? 1 : -1;
+        const na = parseInt(a.replace("s", ""), 10);
+        const nb = parseInt(b.replace("s", ""), 10);
+        const va = na < 100 ? 1900 + na : na;
+        const vb = nb < 100 ? 1900 + nb : nb;
+        return vb - va;
+      });
+      const out: Record<string, Album[]> = {};
+      for (const k of keys) out[k] = map[k];
+      return out;
+    }
+    case "recent": {
+      const now = Date.now();
+      const weekMs = 7 * 24 * 60 * 60 * 1000;
+      const monthMs = 30 * 24 * 60 * 60 * 1000;
+      const order: string[] = ["This Week", "This Month", "Older"];
+      const map: Record<string, Album[]> = { "This Week": [], "This Month": [], "Older": [] };
+      for (const album of filteredAlbums) {
+        const t = album.created_at ? new Date(album.created_at).getTime() : 0;
+        const diff = now - t;
+        const key = diff <= weekMs ? "This Week" : diff <= monthMs ? "This Month" : "Older";
+        map[key].push(album);
+      }
+      const out: Record<string, Album[]> = {};
+      for (const k of order) if (map[k].length) out[k] = map[k];
+      return out;
+    }
+    default:
+      return { "All Records": filteredAlbums };
+  }
+}
+
+function getSectionKeysOrdered(
+  grouped: Record<string, Album[]>,
+  sortCriteria: SortCriteria
+): string[] {
+  const keys = Object.keys(grouped);
+  if (sortCriteria === "artist") return keys.sort((a, b) => (a === "#" ? 1 : b === "#" ? -1 : a.localeCompare(b)));
+  if (sortCriteria === "year") return keys.sort((a, b) => {
+    if (a === "Unknown" || b === "Unknown") return a === "Unknown" ? 1 : -1;
+    const na = parseInt(a.replace("s", ""), 10);
+    const nb = parseInt(b.replace("s", ""), 10);
+    const va = na < 100 ? 1900 + na : na;
+    const vb = nb < 100 ? 1900 + nb : nb;
+    return vb - va;
+  });
+  if (sortCriteria === "recent") return ["This Week", "This Month", "Older"].filter((k) => grouped[k]?.length);
+  return keys;
 }
 
 // Composant pour la section Mood Configuration dans SETUP
@@ -251,6 +343,7 @@ export default function Home() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOption, setSortOption] = useState<"recent" | "artist" | "year" | "location" | "color">("recent");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
@@ -285,17 +378,6 @@ export default function Home() {
     if (selectedAlbum) setModalActiveTab("tracklist");
   }, [selectedAlbum?.id]);
 
-  // Fermer le menu admin au clic extérieur
-  useEffect(() => {
-    const onMouseDown = (e: MouseEvent) => {
-      if (adminMenuRef.current && !adminMenuRef.current.contains(e.target as Node)) {
-        setIsAdminMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
-  }, []);
-
   // --- ÉTATS VUES ET MODE GESTION ---
   const [currentView, setCurrentView] = useState<"SHELF" | "DIG" | "SETUP">("DIG");
   const [isManageMode, setIsManageMode] = useState(false);
@@ -305,6 +387,24 @@ export default function Home() {
   const [selectedAlbumIds, setSelectedAlbumIds] = useState<Set<string>>(new Set());
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const adminMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const closeAdminMenu = useCallback(() => {
+    setIsAdminMenuOpen(false);
+    setIsSelectionMode(false);
+    setSelectedAlbumIds(new Set());
+  }, []);
+
+  // Fermer le menu admin au clic extérieur (uniquement si ouvert)
+  useEffect(() => {
+    if (!isAdminMenuOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(e.target as Node)) {
+        closeAdminMenu();
+      }
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [isAdminMenuOpen, closeAdminMenu]);
 
   // Haptic feedback hook
   const haptic = useHaptic();
@@ -853,6 +953,15 @@ export default function Home() {
     setFilteredAlbums(filtered);
   }, [allAlbums, searchQuery, selectedGenre, selectedMoods, showFavoritesOnly, sortOption]);
 
+  const groupedAlbums = useMemo(
+    () => groupAlbums(filteredAlbums, sortOption),
+    [filteredAlbums, sortOption]
+  );
+  const sectionKeys = useMemo(() => {
+    const keys = getSectionKeysOrdered(groupedAlbums, sortOption);
+    return sortOrder === "desc" ? [...keys].reverse() : keys;
+  }, [groupedAlbums, sortOption, sortOrder]);
+
   useEffect(() => {
     if (!successToast) return;
     const t = setTimeout(() => setSuccessToast(null), 3000);
@@ -930,9 +1039,11 @@ export default function Home() {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsAdminMenuOpen((o) => !o);
-                  haptic.light();
-                  sounds.playSwitch();
+                  if (!isAdminMenuOpen) {
+                    setIsAdminMenuOpen(true);
+                    haptic.light();
+                    sounds.playSwitch();
+                  }
                 }}
                 className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all touch-manipulation shrink-0"
                 title={isManageMode ? "Verrouiller" : "Déverrouiller"}
@@ -941,10 +1052,13 @@ export default function Home() {
               </button>
               <div
                 className={`overflow-hidden transition-all duration-300 ease-out flex items-center ${
-                  isAdminMenuOpen ? "max-w-[200px] opacity-100 ml-1" : "max-w-0 opacity-0"
+                  isAdminMenuOpen ? "max-w-[200px] ml-1" : "max-w-0"
                 }`}
               >
-                <div className="flex items-center gap-1 pl-1 border border-white/10 rounded-r-full bg-zinc-900/90 border-l-0 py-0.5 pr-1">
+                <div
+                  className="flex items-center gap-1 pl-1 border border-white/10 rounded-r-full bg-zinc-900/90 border-l-0 py-0.5 pr-1 w-[200px] min-w-[200px]"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
                   <button
                     onClick={() => {
                       setIsSelectionMode((prev) => !prev);
@@ -976,8 +1090,9 @@ export default function Home() {
                   </button>
                   <button
                     onClick={() => {
-                      setIsAdminMenuOpen(false);
+                      closeAdminMenu();
                       haptic.light();
+                      sounds.playSwitch();
                     }}
                     className="flex items-center justify-center w-7 h-7 rounded-full text-neutral-500 hover:bg-white/10 hover:text-white transition-colors touch-manipulation ml-0.5"
                     title="Fermer"
@@ -990,16 +1105,6 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="relative group w-full md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-500 group-focus-within:text-white" />
-              <input 
-                type="text" 
-                placeholder="Artist, Title, Cat. No..." 
-                value={searchQuery} 
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-full py-1.5 pl-9 pr-4 text-xs text-zinc-500 focus:outline-none focus:border-[#FFB347] focus:shadow-[0_0_15px_rgba(255,179,71,0.3)] focus:bg-zinc-900 caret-[#FFB347] transition-all duration-300 placeholder:text-zinc-500"
-              />
-            </div>
             <span className="bg-zinc-800 text-zinc-300 border border-zinc-700 font-mono text-xs px-2 py-1 rounded-sm">{filteredAlbums.length} LP</span>
           </div>
         </header>
@@ -1025,48 +1130,33 @@ export default function Home() {
             onFavoritesChange={setShowFavoritesOnly}
             gridDensity={gridDensity}
             onGridDensityChange={setGridDensity}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortOption={sortOption}
+            onSortOptionChange={setSortOption}
+            sortOrder={sortOrder}
+            onSortOrderChange={setSortOrder}
             sounds={sounds}
           />
 
-          {/* BARRE D'OUTILS */}
-          <div className="px-6 py-4 border-b border-white/5">
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-end">
-              {/* Tri uniquement - Recherche supprimée */}
-              <div className="flex items-center gap-2">
-                <label className="amp-label text-neutral-500">SORT:</label>
-                <select
-                  value={sortOption}
-                  onChange={(e) => setSortOption(e.target.value as "recent" | "artist" | "year" | "location" | "color")}
-                  className="bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20 transition-all cursor-pointer"
-                >
-                  <option value="recent">Ajouté récemment</option>
-                  <option value="artist">Artiste (A-Z)</option>
-                  <option value="year">Année</option>
-                  <option value="location">Rangement (A-Z)</option>
-                  <option value="color">Couleur (Rainbow)</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
           {/* GRILLE D'ALBUMS */}
-          <div
-            className={`px-6 grid mt-4 transition-all duration-300 max-w-full ${
-              gridDensity === "large" ? "grid-cols-2 md:grid-cols-4 gap-4 md:gap-6" :
-              gridDensity === "medium" ? "grid-cols-3 md:grid-cols-6 gap-3 md:gap-6" :
-              "grid-cols-4 md:grid-cols-8 gap-2 md:gap-4"
-            }`}
-          >
+          <div className="px-6 mt-4 transition-all duration-300 max-w-full">
             {isLoadingLibrary ? (
-              // Skeletons pendant le chargement
-              Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="aspect-square bg-[#111] border border-white/5 animate-pulse">
-                  <div className="w-full h-full bg-neutral-800/50"></div>
-                </div>
-              ))
+              <div
+                className={`grid transition-all duration-300 ${
+                  gridDensity === "large" ? "grid-cols-2 md:grid-cols-4 gap-4 md:gap-6" :
+                  gridDensity === "medium" ? "grid-cols-3 md:grid-cols-6 gap-3 md:gap-6" :
+                  "grid-cols-4 md:grid-cols-8 gap-2 md:gap-4"
+                }`}
+              >
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="aspect-square bg-[#111] border border-white/5 animate-pulse">
+                    <div className="w-full h-full bg-neutral-800/50"></div>
+                  </div>
+                ))}
+              </div>
             ) : !supabase ? (
-              // Message d'erreur si Supabase n'est pas configuré
-              <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+              <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-6 max-w-md">
                   <h3 className="text-white font-bold text-lg mb-2">Configuration manquante</h3>
                   <p className="text-red-300 text-sm mb-4">
@@ -1104,8 +1194,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                 </div>
               </div>
             ) : filteredAlbums.length === 0 && allAlbums.length === 0 ? (
-              // Message si aucune donnée n'est chargée
-              <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+              <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="bg-neutral-900/50 border border-white/10 rounded-lg p-6 max-w-md">
                   <h3 className="amp-label text-white text-lg mb-2 font-semibold">YOUR SHELF IS EMPTY</h3>
                   <p className="text-neutral-400 text-sm mb-4">
@@ -1117,8 +1206,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                 </div>
               </div>
             ) : filteredAlbums.length === 0 ? (
-              // Message si les filtres ne donnent aucun résultat
-              <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+              <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="bg-neutral-900/50 border border-white/10 rounded-lg p-6 max-w-md">
                   <h3 className="amp-label text-white text-lg mb-2 font-semibold">NO MATCH</h3>
                   <p className="text-neutral-400 text-sm">
@@ -1127,7 +1215,22 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                 </div>
               </div>
             ) : (
-              filteredAlbums.map((album) => (
+              sectionKeys.map((sectionKey) => (
+                <section key={sectionKey} className="scroll-mt-32">
+                  <header className="sticky top-[140px] z-30 text-2xl font-bold text-white/90 bg-zinc-950/90 backdrop-blur-xl py-4 px-2 border-b border-white/5 mb-4 mt-8 flex items-center">
+                    <span>{sectionKey}</span>
+                    <span className="text-sm font-normal text-white/40 ml-4">
+                      {groupedAlbums[sectionKey].length} album{groupedAlbums[sectionKey].length !== 1 ? "s" : ""}
+                    </span>
+                  </header>
+                  <div
+                    className={`grid transition-all duration-300 max-w-full ${
+                      gridDensity === "large" ? "grid-cols-2 md:grid-cols-4 gap-4 md:gap-6" :
+                      gridDensity === "medium" ? "grid-cols-3 md:grid-cols-6 gap-3 md:gap-6" :
+                      "grid-cols-4 md:grid-cols-8 gap-2 md:gap-4"
+                    }`}
+                  >
+                    {groupedAlbums[sectionKey].map((album) => (
                 <div
                   key={album.id}
                   onClick={isSelectionMode ? (e) => { e.stopPropagation(); handleAlbumClick(album); } : undefined}
@@ -1218,6 +1321,9 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                     </div>
                   )}
                 </div>
+                    ))}
+                  </div>
+                </section>
               ))
             )}
           </div>
