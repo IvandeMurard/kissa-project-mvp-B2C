@@ -17,6 +17,9 @@ import { useMoodContext } from "@/contexts/MoodContext";
 
 // --- TYPES ---
 
+/** Track item can be a string (title) or an object with title/name/duration */
+type TrackItem = string | { title?: string; name?: string; duration?: string | number };
+
 interface Album {
 
   id: string;
@@ -25,7 +28,7 @@ interface Album {
 
   links: { spotify_url: string; discogs_url: string; spotify_id?: string };
 
-  details: { year: string; label: string; genre: string[]; tracklist?: string[] };
+  details: { year: string; label: string; genre: string[]; tracklist?: TrackItem[] };
 
   purchase_data?: { date?: string; location?: string; price?: number; condition?: string } | null;
 

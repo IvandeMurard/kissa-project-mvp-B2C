@@ -5,11 +5,14 @@ import { Loader2, Sparkles, ExternalLink, Trash2, Play, RefreshCw, Check, Heart,
 import { useHaptic } from "@/hooks/useHaptic";
 import { useMoodContext } from "@/contexts/MoodContext";
 
+/** Track item can be a string (title) or an object with title/name/duration */
+type TrackItem = string | { title?: string; name?: string; duration?: string | number };
+
 interface Album {
   id: string;
   display: { artist: string; title: string; cover_image: string };
   links: { spotify_url: string; discogs_url: string; spotify_id?: string };
-  details: { year: string; label: string; genre: string[]; tracklist?: string[] };
+  details: { year: string; label: string; genre: string[]; tracklist?: TrackItem[] };
   purchase_data?: { date?: string; location?: string; price?: number; condition?: string } | null;
   editorial_notes?: string | null;
   storage_location?: string | null;
