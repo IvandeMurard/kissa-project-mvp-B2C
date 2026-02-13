@@ -886,17 +886,19 @@ export function AlbumDetailView({
         {/* 3. FOOTER (Sticky en bas - toujours visible au-dessus du scroll) */}
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-zinc-950 via-zinc-900/95 to-transparent flex flex-col items-center gap-3 pointer-events-none">
           <div className="w-full flex flex-col items-center gap-3 pointer-events-auto">
-            {localAlbum.links.spotify_url ? (
-              <a
-                href={localAlbum.links.spotify_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => sounds?.playVinylStart()}
-                className="w-full flex items-center justify-center gap-3 bg-white text-black font-bold py-3.5 rounded-full hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-white/10"
+            {localAlbum.links.spotify_id && onPlay ? (
+              <button
+                type="button"
+                onClick={() => {
+                  sounds?.playVinylStart();
+                  onPlay();
+                  onClose?.();
+                }}
+                className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-[#E0E0E0] text-black rounded-sm shadow-[0_4px_0_#999999] active:shadow-none active:translate-y-[4px] transition-all duration-100 ease-out font-black tracking-[0.2em] uppercase text-sm hover:bg-[#E8E8E8]"
               >
-                <Play size={20} fill="currentColor" />
-                <span>LISTEN ON SPOTIFY</span>
-              </a>
+                <Play size={20} fill="currentColor" className="shrink-0" />
+                <span>PLAY</span>
+              </button>
             ) : (
               <div className="w-full flex items-center justify-center gap-3 bg-zinc-800/50 text-zinc-500 font-bold py-3.5 rounded-full cursor-not-allowed">
                 <Play size={20} />
@@ -1393,19 +1395,20 @@ export function AlbumDetailView({
         {/* Actions */}
         {showActions && (
           <div className={`${compact ? 'mt-3' : 'mt-6'} flex flex-col gap-3`}>
-            {localAlbum.links.spotify_url && (
-              <a
-                href={localAlbum.links.spotify_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => sounds?.playVinylStart()}
-                className={`bg-[#1DB954] hover:bg-[#1ed760] text-white py-3 px-4 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 ${
+            {localAlbum.links.spotify_id && onPlay && (
+              <button
+                type="button"
+                onClick={() => {
+                  sounds?.playVinylStart();
+                  onPlay();
+                }}
+                className={`flex items-center justify-center gap-2 px-6 py-3 bg-[#E0E0E0] text-black rounded-sm shadow-[0_4px_0_#999999] active:shadow-none active:translate-y-[4px] transition-all duration-100 ease-out text-sm font-black tracking-[0.2em] uppercase ${
                   tab === "story" ? "hidden md:flex" : ""
                 }`}
               >
-                <ExternalLink className="w-4 h-4" />
-                Listen on Spotify
-              </a>
+                <Play size={16} fill="currentColor" className="shrink-0" />
+                <span>PLAY</span>
+              </button>
             )}
             {isManageMode && onDelete && (
               <button 
@@ -1427,15 +1430,19 @@ export function AlbumDetailView({
         )}
       </div>
 
-      {/* Barre LISTEN (Sticky Bottom) */}
+      {/* Barre PLAY (Sticky Bottom) */}
       {onPlay && localAlbum.links.spotify_id && (
         <div className="absolute bottom-0 left-0 right-0 z-50 h-12 bg-zinc-950/80 backdrop-blur border-t border-white/10 flex items-center justify-end px-4">
-          <button 
-            onClick={onPlay}
-            className="text-white hover:text-amber-500 transition-colors flex items-center gap-2 font-mono text-xs"
+          <button
+            type="button"
+            onClick={() => {
+              sounds?.playVinylStart();
+              onPlay();
+            }}
+            className="text-white hover:text-amber-500 transition-colors flex items-center gap-2 font-mono text-xs uppercase tracking-wider"
           >
             <Play className="w-3 h-3" />
-            LISTEN
+            PLAY
           </button>
         </div>
       )}

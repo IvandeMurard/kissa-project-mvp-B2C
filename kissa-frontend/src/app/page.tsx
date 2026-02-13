@@ -1685,6 +1685,8 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                 compact={false}
                 activeTab={modalActiveTab}
                 onTabChange={(tab) => setModalActiveTab(tab)}
+                onPlay={() => handlePlay(selectedAlbum)}
+                onClose={() => setSelectedAlbum(null)}
                 onArtistClick={(artist) => {
                   setSelectedAlbum(null);
                   setSearchQuery(artist);
