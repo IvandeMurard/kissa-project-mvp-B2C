@@ -1327,12 +1327,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                     {groupedAlbums[sectionKey].map((album) => (
                 <div
                   key={album.id}
-                  onPointerDownCapture={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
                   onClick={(e) => {
-                    e.preventDefault();
                     e.stopPropagation();
                     haptic.light();
                     if (isSelectionMode) {
