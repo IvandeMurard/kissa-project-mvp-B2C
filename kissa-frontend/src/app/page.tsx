@@ -14,6 +14,7 @@ import { SoundToggle } from "@/components/SoundToggle";
 import { AlbumDetailView } from "@/components/AlbumDetailView";
 import { FilterBar } from "@/components/FilterBar";
 import { useMoodContext } from "@/contexts/MoodContext";
+import { usePlayerContext } from "@/contexts/PlayerContext";
 
 // --- TYPES ---
 
@@ -369,9 +370,7 @@ export default function Home() {
 
   const [availableGenres, setAvailableGenres] = useState<string[]>([]);
 
-  const [currentTrack, setCurrentTrack] = useState<Album | null>(null);
-
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { currentTrack, play: playerPlay, stop: playerStop } = usePlayerContext();
 
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [modalActiveTab, setModalActiveTab] = useState<"tracklist" | "sleeve" | "story" | "vibe">("tracklist");
@@ -587,15 +586,12 @@ export default function Home() {
 
 
 
-  const handlePlay = (album: Album) => { 
-    if (album.links.spotify_id) { 
+  const handlePlay = (album: Album) => {
+    if (album.links.spotify_id) {
       sounds.playVinylStart();
-      setCurrentTrack(album); 
-      setIsPlaying(true); 
+      playerPlay(album);
     }
   };
-
-  const handleStop = () => { setIsPlaying(false); setCurrentTrack(null); };
 
 
 
@@ -617,7 +613,7 @@ export default function Home() {
 
       setAllAlbums((prev) => prev.filter((album) => album.id !== id));
 
-      if (currentTrack?.id === id) handleStop();
+      if (currentTrack?.id === id) playerStop();
 
     } catch (error) { 
       const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
@@ -642,8 +638,7 @@ export default function Home() {
     }
     setAllAlbums((prev) => prev.filter((a) => !selectedAlbumIds.has(a.id)));
     if (currentTrack && selectedAlbumIds.has(currentTrack.id)) {
-      setCurrentTrack(null);
-      setIsPlaying(false);
+      playerStop();
     }
     if (selectedAlbum && selectedAlbumIds.has(selectedAlbum.id)) setSelectedAlbum(null);
     setSelectedAlbumIds(new Set());
@@ -689,7 +684,7 @@ export default function Home() {
       console.log(`✅ Album supprimé : ${selectedAlbum.display.title}`);
       setAllAlbums((prev) => prev.filter((album) => album.id !== selectedAlbum.id));
 
-      if (currentTrack?.id === selectedAlbum.id) handleStop();
+      if (currentTrack?.id === selectedAlbum.id) playerStop();
 
       setSelectedAlbum(null);
 
@@ -1874,38 +1869,6 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
       )}
 
 
-
-      {/* LECTEUR FOOTER - Visible sur toutes les vues */}
-
-      {currentTrack && (
-
-        <div className="fixed bottom-16 left-0 right-0 h-24 bg-black/95 border-t border-white/10 backdrop-blur-xl z-40 flex items-center px-4 md:px-8 shadow-2xl animate-in slide-in-from-bottom-24 duration-500">
-
-          <div className="flex items-center gap-4 w-1/3">
-
-            <div className={`relative w-16 h-16 rounded-full overflow-hidden border border-neutral-800 shadow-lg ${isPlaying ? 'animate-[spin_6s_linear_infinite]' : ''}`}>
-
-              <img src={currentTrack.display.cover_image} className="w-full h-full object-cover" />
-
-              <div className="absolute inset-0 flex items-center justify-center"><div className="w-2 h-2 bg-black rounded-full border border-neutral-700"></div></div>
-
-            </div>
-
-            <div className="hidden md:block overflow-hidden"><h4 className="text-white text-sm font-bold truncate">{currentTrack.display.title}</h4><p className="text-neutral-500 text-xs truncate">{currentTrack.display.artist}</p></div>
-
-          </div>
-
-          <div className="flex-grow flex justify-center w-1/3">
-
-             <iframe src={`https://open.spotify.com/embed/album/${currentTrack.links.spotify_id}?utm_source=generator&theme=0`} width="100%" height="80" frameBorder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" className="max-w-md opacity-80 hover:opacity-100 transition-opacity rounded-lg"></iframe>
-
-          </div>
-
-          <div className="w-1/3 flex justify-end"><button onClick={handleStop} className="p-2 hover:bg-neutral-800 rounded-full text-neutral-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button></div>
-
-        </div>
-
-      )}
 
       {successToast && (
         <div

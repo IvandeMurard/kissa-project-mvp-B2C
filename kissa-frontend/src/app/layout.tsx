@@ -3,6 +3,8 @@ import { Geist, Geist_Mono, Rajdhani, Merriweather } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SoundProvider } from "@/contexts/SoundContext";
 import { MoodProvider } from "@/contexts/MoodContext";
+import { PlayerProvider } from "@/contexts/PlayerContext";
+import GlassPlayer from "@/components/GlassPlayer";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -44,7 +46,10 @@ export default function RootLayout({
       >
         <SoundProvider>
           <MoodProvider>
-            {children}
+            <PlayerProvider>
+              {children}
+              <GlassPlayer />
+            </PlayerProvider>
             <SpeedInsights />
           </MoodProvider>
         </SoundProvider>
