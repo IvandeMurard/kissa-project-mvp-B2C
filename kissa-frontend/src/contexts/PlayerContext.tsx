@@ -44,7 +44,7 @@ interface PlayerContextType {
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
 export function PlayerProvider({ children, token }: { children: ReactNode; token: string }) {
-  const playerRef = useRef<ReturnType<typeof window.Spotify.Player> | null>(null);
+  const playerRef = useRef<InstanceType<typeof window.Spotify.Player> | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
