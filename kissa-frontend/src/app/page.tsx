@@ -1327,7 +1327,12 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                     {groupedAlbums[sectionKey].map((album) => (
                 <div
                   key={album.id}
+                  onPointerDownCapture={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                   onClick={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
                     haptic.light();
                     if (isSelectionMode) {
@@ -1593,57 +1598,51 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
       {/* MODAL DÉTAILS ALBUM */}
       {selectedAlbum && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+          className="fixed inset-0 z-50 animate-in fade-in duration-300"
+          onClick={() => setSelectedAlbum(null)}
         >
-          {/* Backdrop Flou (Style Silent Songs) */}
+          {/* Backdrop qui couvre toute la zone cliquable */}
           <div 
-            className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity" 
-            onClick={() => {
-              setSelectedAlbum(null);
-              setModalActiveTab("tracklist");
-            }}
+            className="absolute inset-0 backdrop-blur-md bg-black/60"
           />
-
-          {/* La Carte Modale "Glass" */}
-          <div 
-            key={selectedAlbum.id}
-            className="relative w-full max-w-4xl max-h-[85vh] flex flex-col md:flex-row bg-zinc-900/80 backdrop-blur-2xl border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* COLONNE GAUCHE : Image (Fixe) */}
-            <div className={`w-full md:w-[400px] bg-black/20 flex-shrink-0 relative ${
+          
+          {/* Conteneur avec padding pour centrer le contenu */}
+          <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-6">
+            <div 
+              key={selectedAlbum.id}
+              className="bg-[#111] border border-white/10 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+              style={{ animation: 'scaleIn 0.3s ease-out' }}
+            >
+            {/* Section Image */}
+            <div className={`h-[250px] md:h-full bg-[#000] overflow-hidden shrink-0 transition-all duration-300 ${
               modalActiveTab === "story" ? "hidden md:block" : ""
             } ${
-              modalActiveTab === "sleeve" ? "md:w-2/5" : ""
+              modalActiveTab === "sleeve" ? "md:w-2/5" : "md:w-1/2"
             }`}>
-              {/* Image carrée ou pleine hauteur selon mobile/desktop */}
-              <div className="aspect-square md:h-full md:aspect-auto relative">
-                <img 
-                  src={selectedAlbum.display.cover_image || "/placeholder.png"} 
-                  alt={selectedAlbum.display.title}
-                  className="w-full h-full object-cover"
-                />
-                {/* Gradient Overlay pour lisibilité texte sur image si besoin */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent md:hidden" />
-              </div>
-              
-              {/* Bouton Close Mobile (Flottant) */}
+              <img 
+                src={selectedAlbum.display.cover_image || "/placeholder.png"} 
+                alt={selectedAlbum.display.title}
+                className="w-full h-full object-cover transition-opacity duration-300"
+              />
+            </div>
+
+            {/* Section Texte avec AlbumDetailView */}
+            <div className={`flex flex-col flex-1 relative transition-all duration-300 h-full min-h-0 overflow-hidden ${
+              modalActiveTab === "sleeve" ? "md:w-3/5" : "md:w-1/2"
+            }`}>
+              {/* Bouton Fermer */}
               <button 
                 onClick={() => {
                   setSelectedAlbum(null);
                   setModalActiveTab("tracklist");
-                }} 
-                className="absolute top-4 right-4 md:hidden p-2 bg-black/50 rounded-full text-white backdrop-blur-md z-10"
+                }}
+                className="absolute top-4 right-4 z-10 text-neutral-400 hover:text-white transition-colors"
                 aria-label="Fermer"
               >
-                <X size={20} />
+                <X className="w-5 h-5" />
               </button>
-            </div>
 
-            {/* COLONNE DROITE : Contenu (Scrollable + Footer Fixe) */}
-            <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${
-              modalActiveTab === "sleeve" ? "md:w-3/5" : ""
-            }`}>
               <AlbumDetailView
                 album={selectedAlbum}
                 onUpdate={handleUpdateAlbum}
@@ -1659,12 +1658,9 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                   setSelectedAlbum(null);
                   setSearchQuery(artist);
                 }}
-                onClose={() => {
-                  setSelectedAlbum(null);
-                  setModalActiveTab("tracklist");
-                }}
               />
             </div>
+          </div>
           </div>
         </div>
       )}
