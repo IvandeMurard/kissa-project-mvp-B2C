@@ -141,7 +141,11 @@ def _extract_dominant_color(source: str, is_url: bool) -> Tuple[Optional[str], O
         if is_url:
             if not source or not source.strip():
                 return (None, None)
-            resp = requests.get(source, timeout=10)
+            # Headers pour éviter les erreurs 403 (Discogs bloque les requêtes sans User-Agent)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            resp = requests.get(source, timeout=10, headers=headers)
             resp.raise_for_status()
             content = resp.content
             if not content:
@@ -170,10 +174,22 @@ def _extract_dominant_color(source: str, is_url: bool) -> Tuple[Optional[str], O
         if not colors:
             return (None, None)
         c = colors[0]
-        r, g, b = c.rgb.r, c.rgb.g, c.rgb.b
+        
+        # Gérer les deux formats possibles de c.rgb (objet avec attributs ou tuple)
+        if isinstance(c.rgb, tuple):
+            r, g, b = c.rgb[0], c.rgb[1], c.rgb[2]
+        else:
+            r, g, b = c.rgb.r, c.rgb.g, c.rgb.b
+        
         hex_str = "#%02x%02x%02x" % (r, g, b)
         # colorgram hsl: h,s,l in 0-255; convert h to 0-360
-        h_raw = c.hsl.h
+        # Gérer aussi le cas où hsl pourrait être un tuple
+        if hasattr(c.hsl, 'h'):
+            h_raw = c.hsl.h
+        elif isinstance(c.hsl, tuple):
+            h_raw = c.hsl[0] if len(c.hsl) > 0 else None
+        else:
+            h_raw = None
         hue_float = (h_raw / 255.0) * 360.0 if h_raw is not None else None
         return (hex_str, hue_float)
     except Exception as e:

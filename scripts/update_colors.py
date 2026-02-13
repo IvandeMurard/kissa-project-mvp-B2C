@@ -56,19 +56,36 @@ def main():
     print("🎨 Starting Color Backfill...")
 
     # 1. Récupérer les albums sans dominant_color OU sans dominant_hue
-    response = supabase.table("albums").select("id, title, cover_image, dominant_color, dominant_hue").execute()
-    albums = response.data
+    try:
+        response = supabase.table("albums").select("id, title, cover_image, dominant_color, dominant_hue").execute()
+        albums = response.data or []
+    except Exception as e:
+        print(f"❌ Error fetching albums from Supabase: {e}")
+        print("   Check your SUPABASE_URL and key, and ensure you have network connectivity.")
+        sys.exit(1)
+
+    if not albums:
+        print("ℹ️  No albums found in database.")
+        return
 
     count = 0
+    errors = 0
+    skipped = 0
+
     for album in albums:
         if not album.get("cover_image"):
+            skipped += 1
             continue
 
         # Skip si déjà une couleur ET un hue (pour éviter de recalculer inutilement)
         if album.get('dominant_color') and album.get('dominant_hue') is not None:
+            skipped += 1
             continue
 
-        print(f"Processing: {album['title']}...")
+        album_id = album.get("id")
+        album_title = album.get("title", "Unknown")
+        
+        print(f"Processing: {album_title} (ID: {album_id})...")
         hex_color, hue_float = get_dominant_color_and_hue(album["cover_image"])
 
         if hex_color:
@@ -76,11 +93,24 @@ def main():
             if hue_float is not None:
                 update_data["dominant_hue"] = hue_float
             
-            supabase.table("albums").update(update_data).eq("id", album["id"]).execute()
-            print(f"--> Updated: {hex_color} (hue: {hue_float:.1f})" if hue_float is not None else f"--> Updated: {hex_color}")
-            count += 1
+            try:
+                supabase.table("albums").update(update_data).eq("id", album_id).execute()
+                print(f"   ✅ Updated: {hex_color} (hue: {hue_float:.1f})" if hue_float is not None else f"   ✅ Updated: {hex_color}")
+                count += 1
+            except Exception as e:
+                errors += 1
+                print(f"   ❌ Failed to update album {album_id} ({album_title}): {e}")
+                # Continue processing other albums
+        else:
+            errors += 1
+            print(f"   ⚠️  Could not extract color for {album_title}")
 
-    print(f"✅ Finished! Updated {count} albums.")
+    print(f"\n✅ Finished!")
+    print(f"   Updated: {count} albums")
+    if skipped > 0:
+        print(f"   Skipped: {skipped} albums (already have color+hue or no cover_image)")
+    if errors > 0:
+        print(f"   Errors: {errors} albums failed")
 
 
 if __name__ == "__main__":

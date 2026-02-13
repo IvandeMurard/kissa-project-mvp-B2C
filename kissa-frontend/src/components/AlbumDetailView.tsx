@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Sparkles, ExternalLink, Trash2, Play, RefreshCw, Check, Heart } from "lucide-react";
+import { Loader2, Sparkles, ExternalLink, Trash2, Play, RefreshCw, Check, Heart, X } from "lucide-react";
 import { useHaptic } from "@/hooks/useHaptic";
 import { useMoodContext } from "@/contexts/MoodContext";
 
@@ -35,6 +35,8 @@ interface AlbumDetailViewProps {
   activeTab?: "tracklist" | "sleeve" | "story" | "vibe";
   /** Quand fourni, le nom de l'artiste devient cliquable (ferme modale + filtre par artiste). */
   onArtistClick?: (artist: string) => void;
+  /** Callback pour fermer la modale (affichage du bouton Close dans le header). */
+  onClose?: () => void;
 }
 
 export function AlbumDetailView({
@@ -51,6 +53,7 @@ export function AlbumDetailView({
   onTabChange,
   activeTab: activeTabControlled,
   onArtistClick,
+  onClose,
 }: AlbumDetailViewProps) {
   const { moodOptions } = useMoodContext();
   const haptic = useHaptic();
@@ -461,6 +464,479 @@ export function AlbumDetailView({
   const tabSize = compact ? "text-xs" : "text-sm";
   const contentSize = compact ? "text-xs" : "text-sm";
 
+  // Mode Modal (Glass UI) - Header/Body/Footer layout
+  if (!compact) {
+    return (
+      <div className="flex flex-col h-full relative overflow-hidden">
+        {/* Indicateur Saving/Saved - fixed en haut pour mobile */}
+        {(isSavingMoodColors || moodColorsJustSaved) && tab === "vibe" && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900/95 border border-white/10 text-xs text-zinc-400">
+            {isSavingMoodColors && (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
+                <span>Saving...</span>
+              </>
+            )}
+            {!isSavingMoodColors && moodColorsJustSaved && (
+              <>
+                <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
+                <span className="text-green-500">Saved</span>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* 1. HEADER (Fixe) */}
+        <div className="p-6 pb-2 border-b border-white/5 flex justify-between items-start flex-shrink-0">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-2xl md:text-3xl font-bold text-white leading-tight mb-1 truncate">{localAlbum.display.title}</h2>
+            {onArtistClick ? (
+              <button
+                type="button"
+                onClick={() => onArtistClick(localAlbum.display.artist)}
+                className="text-lg text-amber-500 font-medium cursor-pointer hover:underline text-left"
+              >
+                {localAlbum.display.artist}
+              </button>
+            ) : (
+              <p className="text-lg text-amber-500 font-medium">{localAlbum.display.artist}</p>
+            )}
+            <div className="flex flex-wrap gap-2 mt-3">
+              {/* Tags Année / Genre */}
+              {localAlbum.details.year && (
+                <span className="px-2 py-0.5 rounded text-xs border border-white/10 text-white/60">{localAlbum.details.year}</span>
+              )}
+              {localAlbum.details.genre?.slice(0, 3).map((g, i) => (
+                <span key={i} className="px-2 py-0.5 rounded text-xs bg-white/5 text-white/60">{g}</span>
+              ))}
+            </div>
+          </div>
+          
+          {/* Actions Header (Desktop) */}
+          <div className="hidden md:flex items-center gap-2 flex-shrink-0 ml-4">
+            {showActions && (
+              <button
+                type="button"
+                onClick={handleToggleFavorite}
+                disabled={isTogglingFavorite}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/60 hover:text-red-500 disabled:opacity-50"
+                aria-label={localAlbum.is_favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+              >
+                <Heart size={20} className={localAlbum.is_favorite ? "fill-current text-red-500" : ""} />
+              </button>
+            )}
+            {onClose && (
+              <button 
+                onClick={onClose} 
+                className="p-2 hover:bg-white/10 rounded-full text-white/60 transition-colors"
+                aria-label="Fermer"
+              >
+                <X size={24} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 2. BODY SCROLLABLE (C'est ici que ça corrige le bug tracklist) */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar min-h-0">
+          
+          {/* Onglets (Tracklist / Notes...) */}
+          <div className="flex gap-6 border-b border-white/10 pb-2 text-sm font-medium tracking-wide text-white/50">
+            <button
+              onClick={() => {
+                if (activeTabControlled === undefined) setInternalTab("tracklist");
+                onTabChange?.("tracklist");
+              }}
+              className={`${tab === "tracklist" ? "text-white border-b-2 border-amber-500 pb-2 -mb-2.5" : "hover:text-white transition-colors"}`}
+            >
+              TRACKLIST
+            </button>
+            <button
+              onClick={() => {
+                if (activeTabControlled === undefined) setInternalTab("sleeve");
+                onTabChange?.("sleeve");
+              }}
+              className={`${tab === "sleeve" ? "text-white border-b-2 border-amber-500 pb-2 -mb-2.5" : "hover:text-white transition-colors"}`}
+            >
+              SLEEVE NOTES
+            </button>
+            <button
+              onClick={() => {
+                if (activeTabControlled === undefined) setInternalTab("story");
+                onTabChange?.("story");
+              }}
+              className={`${tab === "story" ? "text-white border-b-2 border-amber-500 pb-2 -mb-2.5" : "hover:text-white transition-colors"}`}
+            >
+              STORY
+            </button>
+            <button
+              onClick={() => {
+                if (activeTabControlled === undefined) setInternalTab("vibe");
+                onTabChange?.("vibe");
+              }}
+              className={`${tab === "vibe" ? "text-white border-b-2 border-amber-500 pb-2 -mb-2.5" : "hover:text-white transition-colors"}`}
+            >
+              VIBE
+            </button>
+          </div>
+
+          {/* Contenu des onglets */}
+          <div>
+            {tab === "tracklist" ? (
+              /* Onglet TRACKLIST */
+              localAlbum.details.tracklist && localAlbum.details.tracklist.length > 0 ? (
+                <div className="space-y-1">
+                  {localAlbum.details.tracklist.map((track, i) => {
+                    const isFocus = optimisticFocusIndices.includes(i);
+                    // Handle both string and object formats
+                    const trackTitle = typeof track === 'string' ? track : (track.title || track.name || '');
+                    const trackDuration = typeof track === 'object' && track.duration ? track.duration : null;
+                    
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => handleToggleFocusTrack(localAlbum.id, i)}
+                        className="group flex items-center py-3 px-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                      >
+                        <span className="w-8 text-right text-white/30 text-xs font-mono mr-4">{i + 1}.</span>
+                        <span className={`flex-1 font-medium truncate ${isFocus ? "text-[#FFB347]" : "text-white/80 group-hover:text-white"}`}>
+                          {trackTitle}
+                        </span>
+                        {trackDuration && (
+                          <span className="text-white/30 text-xs ml-2">{trackDuration}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-white/30 italic py-4">No tracklist available.</p>
+                  {localAlbum.links.spotify_url && (
+                    <button
+                      onClick={handleRefetchTracklist}
+                      disabled={isRefetchingTracklist}
+                      className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-white text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isRefetchingTracklist ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Récupération en cours...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4" />
+                          <span>Récupérer la tracklist depuis Spotify</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {!localAlbum.links.spotify_url && (
+                    <p className="text-zinc-600 text-xs">Aucun lien Spotify disponible pour cet album</p>
+                  )}
+                </div>
+              )
+            ) : tab === "sleeve" ? (
+              /* Onglet SLEEVE NOTES - Simplifié */
+              <div className="transition-opacity duration-300">
+                {/* Section Acquisition Log */}
+                <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-4">
+                  <h4 className="text-xs uppercase tracking-wider text-zinc-400 mb-3 amp-label">
+                    Acquisition Log
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs text-zinc-500 mb-1 block">Lieu</label>
+                      <input
+                        type="text"
+                        placeholder="Acquired at..."
+                        value={localAlbum.purchase_data?.location || ""}
+                        onBlur={(e) => {
+                          if (e.target.value !== localAlbum.purchase_data?.location) {
+                            handleUpdatePurchaseData(localAlbum.id, {
+                              location: e.target.value || undefined,
+                            });
+                          }
+                        }}
+                        className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-500 mb-1 block">Date</label>
+                      <input
+                        type="text"
+                        placeholder="Date"
+                        value={localAlbum.purchase_data?.date || ""}
+                        onBlur={(e) => {
+                          if (e.target.value !== localAlbum.purchase_data?.date) {
+                            handleUpdatePurchaseData(localAlbum.id, {
+                              date: e.target.value || undefined,
+                            });
+                          }
+                        }}
+                        className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-500 mb-1 block">Prix</label>
+                      <input
+                        type="number"
+                        placeholder="Price paid"
+                        value={localAlbum.purchase_data?.price || ""}
+                        onBlur={(e) => {
+                          const price = e.target.value ? parseFloat(e.target.value) : undefined;
+                          if (price !== localAlbum.purchase_data?.price) {
+                            handleUpdatePurchaseData(localAlbum.id, {
+                              price: price,
+                            });
+                          }
+                        }}
+                        className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-500 mb-1 block">Condition</label>
+                      <input
+                        type="text"
+                        placeholder="Condition"
+                        value={localAlbum.purchase_data?.condition || ""}
+                        onBlur={(e) => {
+                          if (e.target.value !== localAlbum.purchase_data?.condition) {
+                            handleUpdatePurchaseData(localAlbum.id, {
+                              condition: e.target.value || undefined,
+                            });
+                          }
+                        }}
+                        className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-500 mb-1 block amp-label">LOCATION / SHELF</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Box A, Top Shelf..."
+                        value={localAlbum.storage_location ?? ""}
+                        onBlur={(e) => {
+                          const val = e.target.value.trim();
+                          const prev = (localAlbum.storage_location ?? "").trim();
+                          if (val !== prev) {
+                            handleUpdatePurchaseData(localAlbum.id, {
+                              storage_location: val ? val : "",
+                            });
+                          }
+                        }}
+                        className="w-full bg-transparent border-none text-white text-sm focus:outline-none focus:ring-0 placeholder:text-zinc-600 amp-label uppercase"
+                        style={{ fontFamily: "var(--font-technical)" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                {/* Notes personnelles */}
+                <div className="mt-4 p-4 border border-zinc-700/50 rounded-lg bg-transparent">
+                  <h4 className="text-xs uppercase tracking-wider text-zinc-400 mb-3 amp-label">
+                    Notes personnelles
+                  </h4>
+                  <textarea
+                    placeholder="Pensées, date d'écoute, souvenir…"
+                    value={localAlbum.personal_notes ?? ""}
+                    onBlur={(e) => {
+                      const val = e.target.value;
+                      const prev = localAlbum.personal_notes ?? "";
+                      if (val !== prev) {
+                        handleUpdatePurchaseData(localAlbum.id, { personal_notes: val || null });
+                      }
+                    }}
+                    onChange={(e) => setLocalAlbum((prev) => ({ ...prev, personal_notes: e.target.value ?? null }))}
+                    className="w-full min-h-[100px] bg-transparent border-none text-white text-sm font-mono focus:outline-none focus:ring-0 placeholder:text-zinc-600 resize-y"
+                    rows={4}
+                  />
+                </div>
+              </div>
+            ) : tab === "vibe" ? (
+              /* Onglet VIBE - Gommettes centrées */
+              <div className="flex flex-col items-center py-12">
+                <div className="grid grid-cols-3 gap-6 max-w-md">
+                  {moodOptions.map((mood) => {
+                    const isSelected = optimisticMoodColors.includes(mood.color);
+                    return (
+                      <button
+                        key={mood.color}
+                        onClick={() => {
+                          const newColors = isSelected
+                            ? optimisticMoodColors.filter(c => c !== mood.color)
+                            : [...optimisticMoodColors, mood.color];
+                          handleUpdateMoodColors(localAlbum.id, newColors);
+                        }}
+                        onMouseEnter={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setTooltipPositionVibe({
+                            x: rect.left + rect.width / 2,
+                            y: rect.bottom + 8
+                          });
+                          setHoveredMoodVibe(mood.color);
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredMoodVibe(null);
+                          setTooltipPositionVibe(null);
+                        }}
+                        className="group relative flex items-center justify-center w-12 h-12 outline-none cursor-pointer"
+                      >
+                        {/* Cercle de couleur - Affiné */}
+                        <div 
+                          className={`w-8 h-8 rounded-full transition-all duration-200 group-hover:scale-105 ${
+                            isSelected 
+                              ? 'ring-1 ring-white ring-offset-1 ring-offset-black' 
+                              : 'opacity-70 hover:opacity-100'
+                          }`}
+                          style={{ backgroundColor: mood.color }}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Tooltip avec position fixed pour VIBE */}
+                {hoveredMoodVibe && tooltipPositionVibe && (
+                  <div
+                    className="fixed z-[9999] pointer-events-none whitespace-nowrap bg-zinc-800 text-white text-[10px] font-medium px-2 py-1 rounded border border-white/10 shadow-xl"
+                    style={{
+                      left: `${tooltipPositionVibe.x}px`,
+                      top: `${tooltipPositionVibe.y}px`,
+                      transform: 'translate(-50%, 0)',
+                      opacity: hoveredMoodVibe ? 1 : 0,
+                      transition: 'opacity 200ms ease-out'
+                    }}
+                  >
+                    {moodOptions.find(m => m.color === hoveredMoodVibe)?.label}
+                    {/* Flèche pointant vers le haut */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-zinc-800"></div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Onglet STORY - Editorial uniquement */
+              <div className="flex-1 flex flex-col">
+                {/* Section Editorial */}
+                <div className="bg-white/5 border border-zinc-800/30 p-6 md:p-10 flex-1 flex flex-col rounded-lg transition-opacity duration-300">
+                  <h4 className="text-xs uppercase tracking-wider text-zinc-400 mb-4 amp-label hidden md:block">
+                    Editorial
+                  </h4>
+                  {localAlbum.editorial_notes ? (
+                    <div className="flex-1 flex flex-col">
+                      <div 
+                        className="text-lg md:text-xl leading-relaxed md:leading-loose text-zinc-300 text-justify space-y-3 flex-1"
+                        style={{ fontFamily: "var(--font-serif)" }}
+                      >
+                        {renderMarkdown(localAlbum.editorial_notes)}
+                      </div>
+                      <div className="amp-label text-xs text-zinc-500 mt-6 italic">
+                        — ARCHIVED IN KISSA
+                      </div>
+                    </div>
+                  ) : isGeneratingNotes ? (
+                    /* Skeleton loader pendant la génération */
+                    <div className="flex flex-col py-8">
+                      <div className="flex items-center justify-center gap-2 mb-6 text-zinc-400 text-sm">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Digging in the crates...</span>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="bg-zinc-800 rounded h-4 animate-pulse w-full"></div>
+                        <div className="bg-zinc-800 rounded h-4 animate-pulse w-5/6"></div>
+                        <div className="bg-zinc-800 rounded h-4 animate-pulse w-full"></div>
+                        <div className="bg-zinc-800 rounded h-4 animate-pulse w-4/5"></div>
+                        <div className="bg-zinc-800 rounded h-4 animate-pulse w-3/4"></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-8 gap-4">
+                      {storyError && (
+                        <div className="text-red-400 text-sm text-center max-w-md">
+                          {storyError}
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleGenerateNotes(localAlbum.id)}
+                        disabled={isGeneratingNotes}
+                        className="border border-zinc-600 hover:border-zinc-400 text-zinc-300 hover:text-white py-3 px-6 text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed rounded-sm"
+                      >
+                        {isGeneratingNotes ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Digging in the crates...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4" />
+                            GENERATE STORY
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Espace vide pour ne pas que la dernière track soit cachée par le footer dégradé */}
+          <div className="h-20" /> 
+        </div>
+
+        {/* 3. FOOTER (Action Principale Fixe) */}
+        <div className="p-6 pt-4 border-t border-white/5 bg-zinc-900/40 backdrop-blur-xl flex-shrink-0 md:bg-transparent">
+          {localAlbum.links.spotify_url ? (
+            <a
+              href={localAlbum.links.spotify_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => sounds?.playVinylStart()}
+              className="w-full flex items-center justify-center gap-3 bg-white text-black font-bold py-3.5 rounded-full hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-white/10"
+            >
+              <Play size={20} fill="currentColor" />
+              <span>LISTEN ON SPOTIFY</span>
+            </a>
+          ) : (
+            <div className="w-full flex items-center justify-center gap-3 bg-zinc-800/50 text-zinc-500 font-bold py-3.5 rounded-full cursor-not-allowed">
+              <Play size={20} />
+              <span>NO SPOTIFY LINK</span>
+            </div>
+          )}
+          {isManageMode && onDelete && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (confirm("Supprimer cet album ?")) {
+                  haptic.heavy();
+                  onDelete();
+                }
+              }}
+              className="w-full mt-3 amp-label bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-full font-semibold transition-colors flex items-center justify-center gap-2 touch-manipulation"
+            >
+              <Trash2 className="w-4 h-4" />
+              DISCARD
+            </button>
+          )}
+        </div>
+
+        {/* Toast d'erreur */}
+        {errorToast && (
+          <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-4">
+            {errorToast}
+          </div>
+        )}
+
+        {/* Toast de succès */}
+        {successToast && (
+          <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-4">
+            {successToast}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Mode Compact (Grid Hover Overlay) - Layout existant
   return (
     <div className="flex flex-col h-full relative overflow-hidden bg-zinc-950">
       {/* Indicateur Saving/Saved - fixed en haut pour mobile */}
@@ -610,6 +1086,8 @@ export function AlbumDetailView({
               <ul className={compact ? "space-y-0" : "space-y-1"} role="list">
                 {localAlbum.details.tracklist.map((track, i) => {
                   const isFocus = optimisticFocusIndices.includes(i);
+                  // Handle both string and object formats
+                  const trackTitle = typeof track === 'string' ? track : (track.title || track.name || '');
                   return (
                     <li
                       key={i}
@@ -624,7 +1102,7 @@ export function AlbumDetailView({
                       <span
                         className={`flex-1 font-sans ${isFocus ? "text-[#FFB347] font-medium" : "text-zinc-300 group-hover:text-zinc-100"}`}
                       >
-                        {track}
+                        {trackTitle}
                       </span>
                     </li>
                   );
