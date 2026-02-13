@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Loader2, Sparkles, ExternalLink, Trash2, Play, RefreshCw, Check, Heart, X } from "lucide-react";
 import { useHaptic } from "@/hooks/useHaptic";
 import { useMoodContext } from "@/contexts/MoodContext";
+import { usePlayer } from "@/contexts/PlayerContext";
 
 /** Track item can be a string (title) or an object with title/name/duration */
 type TrackItem = string | { title?: string; name?: string; duration?: string | number };
@@ -11,7 +12,7 @@ type TrackItem = string | { title?: string; name?: string; duration?: string | n
 interface Album {
   id: string;
   display: { artist: string; title: string; cover_image: string };
-  links: { spotify_url: string; discogs_url: string; spotify_id?: string };
+  links: { spotify_url: string; discogs_url: string; spotify_id?: string; spotify_uri?: string };
   details: { year: string; label: string; genre: string[]; tracklist?: TrackItem[] };
   purchase_data?: { date?: string; location?: string; price?: number; condition?: string } | null;
   editorial_notes?: string | null;
@@ -59,7 +60,20 @@ export function AlbumDetailView({
   onClose,
 }: AlbumDetailViewProps) {
   const { moodOptions } = useMoodContext();
+  const { playAlbum } = usePlayer();
   const haptic = useHaptic();
+
+  const handlePlayAlbum = () => {
+    const uri = localAlbum.links.spotify_uri ?? (localAlbum.links.spotify_id ? `spotify:album:${localAlbum.links.spotify_id}` : "");
+    if (uri && !uri.includes("undefined")) {
+      sounds?.playVinylStart();
+      playAlbum(uri);
+      onClose?.();
+    } else {
+      alert("No Spotify link found for this record.");
+    }
+  };
+
   const [internalTab, setInternalTab] = useState<"tracklist" | "sleeve" | "story" | "vibe">("tracklist");
   const tab = activeTabControlled ?? internalTab;
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
@@ -886,14 +900,10 @@ export function AlbumDetailView({
         {/* 3. FOOTER (Sticky en bas - toujours visible au-dessus du scroll) */}
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-zinc-950 via-zinc-900/95 to-transparent flex flex-col items-center gap-3 pointer-events-none">
           <div className="w-full flex flex-col items-center gap-3 pointer-events-auto">
-            {localAlbum.links.spotify_id && onPlay ? (
+            {(localAlbum.links.spotify_id || localAlbum.links.spotify_uri) ? (
               <button
                 type="button"
-                onClick={() => {
-                  sounds?.playVinylStart();
-                  onPlay();
-                  onClose?.();
-                }}
+                onClick={handlePlayAlbum}
                 className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-[#E0E0E0] text-black rounded-sm shadow-[0_4px_0_#999999] active:shadow-none active:translate-y-[4px] transition-all duration-100 ease-out font-black tracking-[0.2em] uppercase text-sm hover:bg-[#E8E8E8]"
               >
                 <Play size={20} fill="currentColor" className="shrink-0" />
@@ -1431,14 +1441,11 @@ export function AlbumDetailView({
       </div>
 
       {/* Barre PLAY (Sticky Bottom) */}
-      {onPlay && localAlbum.links.spotify_id && (
+      {(localAlbum.links.spotify_id || localAlbum.links.spotify_uri) && (
         <div className="absolute bottom-0 left-0 right-0 z-50 h-12 bg-zinc-950/80 backdrop-blur border-t border-white/10 flex items-center justify-end px-4">
           <button
             type="button"
-            onClick={() => {
-              sounds?.playVinylStart();
-              onPlay();
-            }}
+            onClick={handlePlayAlbum}
             className="text-white hover:text-amber-500 transition-colors flex items-center gap-2 font-mono text-xs uppercase tracking-wider"
           >
             <Play className="w-3 h-3" />
