@@ -88,6 +88,21 @@ function hexToHue(hex: string): number | null {
   return Math.round(h * 360);
 }
 
+/** Get hue value (0-360) for an album, or -1 if no color available. Used for rainbow sorting. */
+function getHue(album: Album): number {
+  // Prefer dominant_hue if available (more accurate, pre-calculated)
+  if (album.dominant_hue != null) {
+    return album.dominant_hue;
+  }
+  // Fallback to converting dominant_color hex to hue
+  if (album.dominant_color) {
+    const hue = hexToHue(album.dominant_color);
+    return hue != null ? hue : -1;
+  }
+  // No color available
+  return -1;
+}
+
 function formatAlbumRow(item: any): Album {
   return {
     id: item.id,
@@ -464,6 +479,8 @@ export default function Home() {
     setSelectedAlbum(album);
     broadcastSelection(album.id);
   }, [haptic, broadcastSelection, isSelectionMode]);
+
+
 
   // Mise à jour d'un album (gommettes, etc.) : grille et modale restent synchronisées ; broadcast pour l’écran Remote
   const handleUpdateAlbum = useCallback((updatedAlbum: Album) => {
@@ -927,10 +944,11 @@ export default function Home() {
     }
 
     // Filtrage par favoris
-    if (showFavoritesOnly) {
-      filtered = filtered.filter((album) => album.is_favorite === true);
-      console.log(`❤️ Filtrage favoris: ${filtered.length} résultat(s)`);
-    }
+    filtered = filtered.filter((album) => {
+      if (showFavoritesOnly && !album.is_favorite) return false;
+      return true;
+    });
+    if (showFavoritesOnly) console.log(`❤️ Filtrage favoris: ${filtered.length} résultat(s)`);
 
     // Tri
     filtered.sort((a, b) => {
@@ -951,12 +969,13 @@ export default function Home() {
           return sa.localeCompare(sb);
         }
         case "color": {
-          const hueA = a.dominant_hue ?? (a.dominant_color ? hexToHue(a.dominant_color) : null);
-          const hueB = b.dominant_hue ?? (b.dominant_color ? hexToHue(b.dominant_color) : null);
-          if (hueA == null && hueB == null) return 0;
-          if (hueA == null) return 1;
-          if (hueB == null) return -1;
-          return hueA - hueB;
+          // Rainbow sort: albums sorted by hue (0-360), albums without color go to the end (hue = -1)
+          const hueA = getHue(a);
+          const hueB = getHue(b);
+          if (hueA === -1 && hueB === -1) return 0;
+          if (hueA === -1) return 1;  // a à la fin
+          if (hueB === -1) return -1; // b à la fin
+          return hueA - hueB; // tri croissant par teinte (arc-en-ciel)
         }
         case "recent":
         default:
@@ -1308,7 +1327,26 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                     {groupedAlbums[sectionKey].map((album) => (
                 <div
                   key={album.id}
-                  onClick={isSelectionMode ? (e) => { e.stopPropagation(); handleAlbumClick(album); } : undefined}
+                  onPointerDownCapture={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    haptic.light();
+                    if (isSelectionMode) {
+                      setSelectedAlbumIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(album.id)) next.delete(album.id);
+                        else next.add(album.id);
+                        return next;
+                      });
+                    } else {
+                      setSelectedAlbum(album);
+                      broadcastSelection(album.id);
+                    }
+                  }}
                   className={`group relative aspect-square bg-[#111] overflow-hidden border animate-in fade-in duration-300 transition-all ${
                     isSelectionMode ? "cursor-pointer" : "cursor-default"
                   } ${
@@ -1318,9 +1356,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                   <img 
                     src={album.display.cover_image || "/placeholder.png"} 
                     alt={album.display.title}
-                    onClick={() => {
-                      if (!isSelectionMode) handleAlbumClick(album);
-                    }}
+                    draggable={false}
                     className={`w-full h-full object-cover transition-all duration-300 ease-out touch-manipulation ${
                       gridDensity !== "small" ? "md:relative md:z-10 shadow-md md:group-hover:-translate-y-4 md:group-hover:scale-105 md:group-hover:shadow-2xl" : ""
                     } ${
