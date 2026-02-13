@@ -370,7 +370,7 @@ export default function Home() {
 
   const [availableGenres, setAvailableGenres] = useState<string[]>([]);
 
-  const { currentTrack, play: playerPlay, stop: playerStop } = usePlayerContext();
+  const { currentAlbumUri } = usePlayerContext();
 
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [modalActiveTab, setModalActiveTab] = useState<"tracklist" | "sleeve" | "story" | "vibe">("tracklist");
@@ -586,15 +586,6 @@ export default function Home() {
 
 
 
-  const handlePlay = (album: Album) => {
-    if (album.links.spotify_id) {
-      sounds.playVinylStart();
-      playerPlay(album);
-    }
-  };
-
-
-
   const handleDelete = async (id: string, e: React.MouseEvent) => {
 
     e.stopPropagation();
@@ -612,8 +603,6 @@ export default function Home() {
       }
 
       setAllAlbums((prev) => prev.filter((album) => album.id !== id));
-
-      if (currentTrack?.id === id) playerStop();
 
     } catch (error) { 
       const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
@@ -637,9 +626,6 @@ export default function Home() {
       return;
     }
     setAllAlbums((prev) => prev.filter((a) => !selectedAlbumIds.has(a.id)));
-    if (currentTrack && selectedAlbumIds.has(currentTrack.id)) {
-      playerStop();
-    }
     if (selectedAlbum && selectedAlbumIds.has(selectedAlbum.id)) setSelectedAlbum(null);
     setSelectedAlbumIds(new Set());
     setIsSelectionMode(false);
@@ -683,8 +669,6 @@ export default function Home() {
 
       console.log(`✅ Album supprimé : ${selectedAlbum.display.title}`);
       setAllAlbums((prev) => prev.filter((album) => album.id !== selectedAlbum.id));
-
-      if (currentTrack?.id === selectedAlbum.id) playerStop();
 
       setSelectedAlbum(null);
 
@@ -1394,7 +1378,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                       isSelectionMode && !selectedAlbumIds.has(album.id) ? "scale-90 opacity-60 grayscale" : ""
                     } ${
                       isSelectionMode && selectedAlbumIds.has(album.id) ? "scale-100 opacity-100 grayscale-0" : ""
-                    } ${!isSelectionMode ? "cursor-pointer md:cursor-default" : "cursor-pointer"} ${currentTrack?.id === album.id ? "opacity-50 grayscale" : ""}`}
+                    } ${!isSelectionMode ? "cursor-pointer md:cursor-default" : "cursor-pointer"} ${album.links.spotify_id && currentAlbumUri === `spotify:album:${album.links.spotify_id}` ? "opacity-50 grayscale" : ""}`}
                   />
                   {/* Mood Colors Gommettes */}
                   {album.mood_colors && album.mood_colors.length > 0 && (
@@ -1449,7 +1433,6 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                       <AlbumDetailView
                         album={album}
                         onUpdate={handleUpdateAlbum}
-                        onPlay={() => handlePlay(album)}
                         showActions={false}
                         compact={true}
                         API_URL={API_URL}
@@ -1457,7 +1440,7 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                     </div>
                   )}
 
-                  {currentTrack?.id === album.id && (
+                  {album.links.spotify_id && currentAlbumUri === `spotify:album:${album.links.spotify_id}` && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <div className="w-12 h-12 rounded-full border-2 border-white/20 animate-[spin_3s_linear_infinite] flex items-center justify-center"><div className="w-3 h-3 bg-red-500 rounded-full" /></div>
                     </div>
@@ -1685,7 +1668,6 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
                 compact={false}
                 activeTab={modalActiveTab}
                 onTabChange={(tab) => setModalActiveTab(tab)}
-                onPlay={() => handlePlay(selectedAlbum)}
                 onClose={() => setSelectedAlbum(null)}
                 onArtistClick={(artist) => {
                   setSelectedAlbum(null);

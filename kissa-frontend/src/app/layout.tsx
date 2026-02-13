@@ -46,7 +46,7 @@ export default function RootLayout({
       >
         <SoundProvider>
           <MoodProvider>
-            <PlayerProvider>
+            <PlayerProvider token={process.env.NEXT_PUBLIC_SPOTIFY_ACCESS_TOKEN ?? ""}>
               {children}
               <GlassPlayer />
             </PlayerProvider>
