@@ -541,7 +541,7 @@ export function AlbumDetailView({
         </div>
 
         {/* 2. BODY SCROLLABLE (C'est ici que ça corrige le bug tracklist) */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar min-h-0">
+        <div className="flex-1 overflow-y-auto p-6 pb-24 space-y-6 custom-scrollbar min-h-0">
           
           {/* Onglets (Tracklist / Notes...) */}
           <div className="flex gap-6 border-b border-white/10 pb-2 text-sm font-medium tracking-wide text-white/50">
@@ -881,45 +881,45 @@ export function AlbumDetailView({
             )}
           </div>
           
-          {/* Espace vide pour ne pas que la dernière track soit cachée par le footer dégradé */}
-          <div className="h-20" /> 
         </div>
 
-        {/* 3. FOOTER (Action Principale Fixe) */}
-        <div className="p-6 pt-4 border-t border-white/5 bg-zinc-900/40 backdrop-blur-xl flex-shrink-0 md:bg-transparent">
-          {localAlbum.links.spotify_url ? (
-            <a
-              href={localAlbum.links.spotify_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => sounds?.playVinylStart()}
-              className="w-full flex items-center justify-center gap-3 bg-white text-black font-bold py-3.5 rounded-full hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-white/10"
-            >
-              <Play size={20} fill="currentColor" />
-              <span>LISTEN ON SPOTIFY</span>
-            </a>
-          ) : (
-            <div className="w-full flex items-center justify-center gap-3 bg-zinc-800/50 text-zinc-500 font-bold py-3.5 rounded-full cursor-not-allowed">
-              <Play size={20} />
-              <span>NO SPOTIFY LINK</span>
-            </div>
-          )}
-          {isManageMode && onDelete && (
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                if (confirm("Supprimer cet album ?")) {
-                  haptic.heavy();
-                  onDelete();
-                }
-              }}
-              className="w-full mt-3 amp-label bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-full font-semibold transition-colors flex items-center justify-center gap-2 touch-manipulation"
-            >
+        {/* 3. FOOTER (Sticky en bas - toujours visible au-dessus du scroll) */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-zinc-950 via-zinc-900/95 to-transparent flex flex-col items-center gap-3 pointer-events-none">
+          <div className="w-full flex flex-col items-center gap-3 pointer-events-auto">
+            {localAlbum.links.spotify_url ? (
+              <a
+                href={localAlbum.links.spotify_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => sounds?.playVinylStart()}
+                className="w-full flex items-center justify-center gap-3 bg-white text-black font-bold py-3.5 rounded-full hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-white/10"
+              >
+                <Play size={20} fill="currentColor" />
+                <span>LISTEN ON SPOTIFY</span>
+              </a>
+            ) : (
+              <div className="w-full flex items-center justify-center gap-3 bg-zinc-800/50 text-zinc-500 font-bold py-3.5 rounded-full cursor-not-allowed">
+                <Play size={20} />
+                <span>NO SPOTIFY LINK</span>
+              </div>
+            )}
+            {isManageMode && onDelete && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (confirm("Supprimer cet album ?")) {
+                    haptic.heavy();
+                    onDelete();
+                  }
+                }}
+                className="w-full amp-label bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-full font-semibold transition-colors flex items-center justify-center gap-2 touch-manipulation"
+              >
               <Trash2 className="w-4 h-4" />
               DISCARD
             </button>
           )}
+          </div>
         </div>
 
         {/* Toast d'erreur */}

@@ -652,6 +652,21 @@ export default function Home() {
     setSuccessToast(`${ids.length} album(s) supprimé(s)`);
   };
 
+  const handleEditSelection = () => {
+    if (selectedAlbumIds.size === 0) return;
+    if (selectedAlbumIds.size === 1) {
+      const albumId = Array.from(selectedAlbumIds)[0];
+      const albumToEdit = allAlbums.find((a) => a.id === albumId);
+      if (albumToEdit) {
+        setSelectedAlbum(albumToEdit);
+        setModalActiveTab("sleeve");
+        closeAdminMenu();
+      }
+    } else {
+      alert(`Batch Edit for ${selectedAlbumIds.size} items is coming soon!`);
+    }
+  };
+
   const handleDeleteFromModal = async () => {
 
     if (!selectedAlbum) return;
@@ -1076,7 +1091,16 @@ export default function Home() {
               {!isShelfSearchExpanded ? (
                 <>
                   <div className="flex items-center gap-3">
-                    <h1 className="text-white font-bold text-lg tracking-tight">KISSA</h1>
+                    {/* LOGO KISSA - Style Lightbox */}
+                    <div className="flex items-center gap-4">
+                      <div className="relative group cursor-pointer">
+                        <div className="absolute -inset-1 bg-amber-100/20 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-500"></div>
+                        <div className="relative px-4 py-1.5 bg-[#FFFBF0] rounded border border-white/40 shadow-[0_0_15px_rgba(255,250,230,0.5)] flex items-center gap-2">
+                          <span className="text-black font-bold tracking-widest text-sm">喫茶</span>
+                          <span className="text-black font-black tracking-widest text-base">KISSA</span>
+                        </div>
+                      </div>
+                    </div>
                     <div ref={adminMenuRef} className="flex items-center gap-0 overflow-visible">
                       <button
                         onClick={(e) => {
@@ -1098,7 +1122,7 @@ export default function Home() {
                           onMouseDown={(e) => e.stopPropagation()}
                         >
                           <button onClick={() => { setIsSelectionMode((prev) => !prev); if (isSelectionMode) setSelectedAlbumIds(new Set()); haptic.light(); }} className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors touch-manipulation ${isSelectionMode ? "bg-amber-500/30 text-amber-400" : "text-neutral-400 hover:bg-white/10 hover:text-white"}`}><CheckSquare className="w-4 h-4 shrink-0" /></button>
-                          <button onClick={() => { setIsManageMode((prev) => !prev); haptic.light(); }} className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors touch-manipulation"><Edit3 className="w-4 h-4 shrink-0" /></button>
+                          <button onClick={() => { if (isSelectionMode && selectedAlbumIds.size > 0) { handleEditSelection(); } else { setIsManageMode((prev) => !prev); } haptic.light(); }} className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors touch-manipulation"><Edit3 className="w-4 h-4 shrink-0" /></button>
                           <button onClick={async () => await handleBatchDelete()} disabled={selectedAlbumIds.size === 0} className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation"><Trash2 className="w-4 h-4 shrink-0" /></button>
                           <button onClick={() => { closeAdminMenu(); haptic.light(); sounds.playSwitch(); }} className="flex items-center justify-center w-7 h-7 rounded-full text-neutral-500 hover:bg-white/10 hover:text-white transition-colors touch-manipulation ml-0.5"><X className="w-3.5 h-3.5" /></button>
                         </div>
@@ -1195,7 +1219,16 @@ export default function Home() {
           <div className="hidden md:block">
             <div className="flex items-center justify-between gap-4 px-6 py-3 border-b border-white/5">
               <div className="flex items-center gap-6 min-w-0">
-                <h1 className="text-white font-bold text-lg tracking-tight shrink-0">KISSA</h1>
+                {/* LOGO KISSA - Style Lightbox */}
+                <div className="flex items-center gap-4 shrink-0">
+                  <div className="relative group cursor-pointer">
+                    <div className="absolute -inset-1 bg-amber-100/20 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-500"></div>
+                    <div className="relative px-4 py-1.5 bg-[#FFFBF0] rounded border border-white/40 shadow-[0_0_15px_rgba(255,250,230,0.5)] flex items-center gap-2">
+                      <span className="text-black font-bold tracking-widest text-sm">喫茶</span>
+                      <span className="text-black font-black tracking-widest text-base">KISSA</span>
+                    </div>
+                  </div>
+                </div>
                 <div ref={adminMenuRef} className="flex items-center gap-0 overflow-visible">
                   <button onClick={(e) => { e.stopPropagation(); if (!isAdminMenuOpen) { setIsAdminMenuOpen(true); haptic.light(); sounds.playSwitch(); } }} className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all touch-manipulation shrink-0" title={isManageMode ? "Verrouiller" : "Déverrouiller"}>
                     {isManageMode ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
@@ -1203,7 +1236,7 @@ export default function Home() {
                   {isAdminMenuOpen && (
                     <div className="flex items-center gap-1 pl-1 border border-white/10 rounded-r-full bg-zinc-900/90 border-l-0 py-0.5 pr-1 ml-1" onMouseDown={(e) => e.stopPropagation()}>
                       <button onClick={() => { setIsSelectionMode((prev) => !prev); if (isSelectionMode) setSelectedAlbumIds(new Set()); haptic.light(); }} className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors touch-manipulation ${isSelectionMode ? "bg-amber-500/30 text-amber-400" : "text-neutral-400 hover:bg-white/10 hover:text-white"}`}><CheckSquare className="w-4 h-4 shrink-0" /></button>
-                      <button onClick={() => { setIsManageMode((prev) => !prev); haptic.light(); }} className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors touch-manipulation"><Edit3 className="w-4 h-4 shrink-0" /></button>
+                      <button onClick={() => { if (isSelectionMode && selectedAlbumIds.size > 0) { handleEditSelection(); } else { setIsManageMode((prev) => !prev); } haptic.light(); }} className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors touch-manipulation"><Edit3 className="w-4 h-4 shrink-0" /></button>
                       <button onClick={async () => await handleBatchDelete()} disabled={selectedAlbumIds.size === 0} className="flex items-center justify-center w-8 h-8 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation"><Trash2 className="w-4 h-4 shrink-0" /></button>
                       <button onClick={() => { closeAdminMenu(); haptic.light(); sounds.playSwitch(); }} className="flex items-center justify-center w-7 h-7 rounded-full text-neutral-500 hover:bg-white/10 hover:text-white transition-colors touch-manipulation ml-0.5"><X className="w-3.5 h-3.5" /></button>
                     </div>
@@ -1613,12 +1646,12 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
           <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-6">
             <div 
               key={selectedAlbum.id}
-              className="bg-[#111] border border-white/10 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl"
+              className="bg-[#111] border border-white/10 rounded-lg max-w-4xl w-full h-[85vh] overflow-hidden flex flex-col md:flex-row shadow-2xl"
               onClick={(e) => e.stopPropagation()}
               style={{ animation: 'scaleIn 0.3s ease-out' }}
             >
             {/* Section Image */}
-            <div className={`h-[250px] md:h-full bg-[#000] overflow-hidden shrink-0 transition-all duration-300 ${
+            <div className={`h-[250px] md:h-full min-h-0 bg-[#000] overflow-hidden shrink-0 transition-all duration-300 ${
               modalActiveTab === "story" ? "hidden md:block" : ""
             } ${
               modalActiveTab === "sleeve" ? "md:w-2/5" : "md:w-1/2"
@@ -1721,8 +1754,18 @@ NEXT_PUBLIC_SUPABASE_KEY=votre_cle`}
             <div className="absolute bottom-0 right-0 w-[1px] h-4 bg-zinc-700"></div>
           </div>
 
-          {/* Logo Kissa en haut à gauche */}
-          <h1 className="absolute top-6 left-6 lightbox-sign inline-block rounded-xl px-4 py-2 text-sm z-10">喫茶 Kissa</h1>
+          {/* Logo Kissa en haut à gauche - Style Lightbox */}
+          <div className="absolute top-6 left-6 z-10">
+            <div className="flex items-center gap-4">
+              <div className="relative group cursor-pointer">
+                <div className="absolute -inset-1 bg-amber-100/20 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-500"></div>
+                <div className="relative px-4 py-1.5 bg-[#FFFBF0] rounded border border-white/40 shadow-[0_0_15px_rgba(255,250,230,0.5)] flex items-center gap-2">
+                  <span className="text-black font-bold tracking-widest text-sm">喫茶</span>
+                  <span className="text-black font-black tracking-widest text-base">KISSA</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Bouton de recherche manuelle - Flottant en haut à droite */}
           <button
